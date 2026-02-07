@@ -1,0 +1,76 @@
+<div>
+  <h5 style="margin-top:0;">Stock planilla</h5>
+  <p class="grey-text" style="margin-top:-10px;">
+    <b>{{ producto.nombre }}</b>
+  </p>
+
+  <div class="row" style="margin-bottom:0;">
+    <div class="input-field col s12">
+      <select
+        name="sucursal_id"
+        hx-get="{% url 'catalogo:stock_planilla' producto_id=producto.id %}"
+        hx-target="#modal_body"
+        hx-swap="innerHTML"
+        hx-include="this"
+      >
+        {% for s in sucursales %}
+          <option value="{{ s.id }}" {% if sucursal_sel and s.id == sucursal_sel.id %}selected{% endif %}>
+            {{ s.nombre }}
+          </option>
+        {% endfor %}
+      </select>
+      <label class="active">Sucursal</label>
+    </div>
+  </div>
+
+  {% if not sucursal_sel %}
+    <p class="red-text">No hay sucursales activas.</p>
+  {% else %}
+    <div style="overflow:auto;">
+      <table class="striped">
+        <thead>
+          <tr>
+            <th>Talle \ Color</th>
+            {% for c in colores %}
+              <th>{{ c }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td><b>{{ row.talle }}</b></td>
+
+              {% for cell in row.cells %}
+                <td style="min-width:140px;">
+                  {% if cell.variante %}
+                    <form
+                      hx-post="{% url 'catalogo:stock_set' %}"
+                      hx-trigger="change delay:200ms"
+                      hx-target="this"
+                      hx-swap="none"
+                    >
+                      {% csrf_token %}
+                      <input type="hidden" name="sucursal_id" value="{{ sucursal_sel.id }}">
+                      <input type="hidden" name="variante_id" value="{{ cell.variante.id }}">
+
+                      <input
+                        type="number"
+                        name="cantidad"
+                        value="{{ cell.cantidad }}"
+                        style="margin:0;"
+                      >
+                    </form>
+                    <span class="grey-text" style="font-size:12px;">{{ cell.variante.sku }}</span>
+                  {% else %}
+                    <span class="grey-text">—</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</div>

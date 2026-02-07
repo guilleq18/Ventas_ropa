@@ -1,0 +1,25 @@
+{% if not results %}
+  <p class="grey-text">Escribí un SKU para buscar…</p>
+{% else %}
+  <ul class="collection">
+    {% for v in results %}
+      <li class="collection-item">
+        <div>
+          <strong>{{ v.sku }}</strong> — {{ v.producto.nombre }}
+          <span class="right">${{ v.precio }}</span>
+
+          <div style="margin-top:8px;">
+            <form hx-post="{% url 'caja:carrito_agregar' v.id %}"
+                  hx-target="#carrito"
+                  hx-swap="innerHTML">
+              {% csrf_token %}
+              <button class="btn waves-effect waves-light blue" type="submit">
+                Agregar
+              </button>
+            </form>
+          </div>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

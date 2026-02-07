@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Catálogo</title>
+
+  <!-- Materialize CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <!-- Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <!-- HTMX -->
+  <script defer src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <!-- Materialize JS -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+  <style>
+    .btn, .btn-large { height: 48px; line-height: 48px; }
+    .page-wrap { padding: 12px; }
+    .modal { max-height: 92%; }
+  </style>
+
+  <script defer>
+    // Abre el modal principal y re-inicializa componentes Materialize dentro del modal
+    function openMainModal() {
+      const el = document.getElementById('modal_main');
+      if (!el || typeof M === "undefined") return;
+      const inst = M.Modal.getInstance(el) || M.Modal.init(el);
+      inst.open();
+      if (M.updateTextFields) M.updateTextFields();
+      M.FormSelect.init(document.querySelectorAll('select'));
+      
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Inicialización Materialize global
+      if (typeof M !== "undefined") {
+        M.AutoInit();
+      }
+
+      // ✅ CSRF para HTMX (evita 403 en hx-post, ej: eliminar variante)
+      document.body.addEventListener('htmx:configRequest', function (event) {
+        const token = document.querySelector('#csrf-holder [name=csrfmiddlewaretoken]')?.value;
+        if (token) {
+          event.detail.headers['X-CSRFToken'] = token;
+        }
+      });
+
+      // Cuando HTMX inserta contenido en el modal, lo abrimos
+      document.body.addEventListener('htmx:afterSwap', function(e) {
+        if (e.detail.target && e.detail.target.id === "modal_body") {
+          openMainModal();
+        }
+        // Re-init selects por si se actualizaron parciales
+        if (typeof M !== "undefined") {
+          M.FormSelect.init(document.querySelectorAll('select'));
+        }
+      });
+
+      // Si se actualizó stock y el modal de detalle está abierto, recarga el contenido del modal
+      document.body.addEventListener("stockUpdated", function() {
+        const modalBody = document.getElementById("modal_body");
+        if (!modalBody) return;
+        const vid = modalBody.getAttribute("data-variante-id");
+        if (!vid || typeof htmx === "undefined") return;
+
+        htmx.ajax('GET', `/catalogo/variante/${vid}/stock/detalle/`, {
+          target: '#modal_body',
+          swap: 'innerHTML'
+        });
+      });
+
+      // Enter en input de stock: evita submit normal, dispara blur y cierra modal
+      document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+
+        const el = e.target;
+        if (!el || !el.classList || !el.classList.contains('stock-input')) return;
+
+        e.preventDefault();
+        el.blur(); // fuerza change/blur para HTMX
+        document.body.dispatchEvent(new Event('closeModal'));
+      });
+
+      // Cerrar modal por evento (disparado desde Django con HX-Trigger: closeModal)
+      document.body.addEventListener("closeModal", function() {
+        const el = document.getElementById('modal_main');
+        if (!el || typeof M === "undefined") return;
+        const inst = M.Modal.getInstance(el);
+        if (inst) inst.close();
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <!-- ✅ CSRF global disponible para HTMX -->
+  <form id="csrf-holder" style="display:none;">{% csrf_token %}</form>
+
+  <nav>
+    <div class="nav-wrapper">
+      <a href="#" class="brand-logo" style="padding-left:12px;">Catálogo</a>
+      <ul id="nav-mobile" class="right">
+        <li><a href="/caja/">Caja</a></li>
+        <li><a href="/admin/">Admin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="page-wrap">
+    <div class="row">
+      <div class="col s12 m6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Productos</span>
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="input-field col s12">
+                <input id="q" name="q" type="text" placeholder="Nombre / Categoría..."
+                       hx-get="{% url 'catalogo:productos_buscar' %}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#productos_lista"
+                       hx-include="#q">
+                <label for="q">Buscar</label>
+              </div>
+            </div>
+
+            <div class="right-align">
+              <a class="btn-large"
+                 href="javascript:void(0)"
+                 hx-get="{% url 'catalogo:producto_nuevo' %}"
+                 hx-target="#modal_body"
+                 hx-swap="innerHTML">
+                <i class="material-icons left">add</i>Nuevo
+              </a>
+            </div>
+          </div>
+
+          <div class="card-content" id="productos_lista">
+            {% include "catalogo/_productos_lista.html" %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 m6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Variantes</span>
+            <p class="grey-text">Seleccioná un producto para ver/editar variantes.</p>
+          </div>
+          <div class="card-content" id="variantes_panel"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal reutilizable -->
+  <div id="modal_main" class="modal">
+    <div class="modal-content" id="modal_body"></div>
+  </div>
+
+</body>
+</html>

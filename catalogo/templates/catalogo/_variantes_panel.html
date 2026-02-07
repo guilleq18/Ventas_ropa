@@ -1,0 +1,91 @@
+{# catalogo/templates/catalogo/_variantes_panel.html #}
+
+<div>
+  <div class="row" style="margin-bottom:0;">
+    <div class="col s12">
+      <h5 style="margin:0;">{{ producto.nombre }}</h5>
+      <p class="grey-text" style="margin-top:4px;">
+        Variantes del producto
+      </p>
+    </div>
+  </div>
+
+  <div class="row" style="margin-bottom:12px;">
+    <div class="col s12">
+      <a class="btn"
+         href="javascript:void(0)"
+         hx-get="{% url 'catalogo:variante_nueva' producto_id=producto.id %}"
+         hx-target="#modal_body"
+         hx-swap="innerHTML">
+        <i class="material-icons left">add</i>Nueva variante
+      </a>
+
+      <a class="btn grey"
+         href="javascript:void(0)"
+         hx-get="{% url 'catalogo:variantes_generador' producto_id=producto.id %}"
+         hx-target="#modal_body"
+         hx-swap="innerHTML">
+        <i class="material-icons left">grid_on</i>Generador
+      </a>
+    </div>
+  </div>
+
+  <div style="overflow:auto;">
+    <table class="striped highlight">
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>EAN</th>
+          <th>Color</th>
+          <th>Talle</th>
+          <th class="right-align">Stock Total</th>
+          <th class="right-align">Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for item in variantes %}
+          <tr>
+            <td>{{ item.v.sku }}</td>
+            <td>{{ item.v.codigo_barras|default:"-" }}</td>
+            <td>{{ item.color }}</td>
+            <td>{{ item.talle }}</td>
+
+            <td class="right-align">
+              <a href="javascript:void(0)"
+                hx-get="{% url 'catalogo:variante_stock_detalle' variante_id=item.v.id %}"
+                hx-target="#modal_body"
+                hx-swap="innerHTML"
+                style="font-weight:600;">
+                {{ item.stock_total }}
+              </a>
+            </td>
+
+            <td class="right-align">
+              <a href="javascript:void(0)"
+                 hx-get="{% url 'catalogo:variante_editar' pk=item.v.id %}"
+                 hx-target="#modal_body"
+                 hx-swap="innerHTML"
+                 title="Editar">
+                <i class="material-icons">edit</i>
+              </a>
+
+              <a href="javascript:void(0)"
+                 hx-post="{% url 'catalogo:variante_eliminar' pk=item.v.id %}"
+                 hx-target="#variantes_panel"
+                 hx-swap="innerHTML"
+                 hx-confirm="¿Eliminar la variante {{ item.v.sku }}?"
+                 title="Eliminar">
+                <i class="material-icons red-text">delete</i>
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="grey-text">Sin variantes todavía.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

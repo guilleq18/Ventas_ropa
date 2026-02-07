@@ -1,0 +1,96 @@
+<div>
+  <h5 style="margin-top:0;">
+    {% if modo == "nuevo" %}Nueva variante{% else %}Editar variante{% endif %}
+  </h5>
+
+  {% if producto %}
+    <p class="grey-text" style="margin-top:-10px;"><b>{{ producto.nombre }}</b></p>
+  {% elif variante %}
+    <p class="grey-text" style="margin-top:-10px;"><b>{{ variante.producto.nombre }}</b></p>
+  {% endif %}
+
+  <!-- ✅ Mensaje de error “de negocio” (talle/color obligatorios, duplicado, etc.) -->
+  {% if error_msg %}
+    <div class="card-panel red lighten-4 red-text" style="padding:10px;">
+      {{ error_msg }}
+    </div>
+  {% endif %}
+
+  <!-- ✅ Errores generales del form -->
+  {% if form.non_field_errors %}
+    <div class="card-panel red lighten-4 red-text" style="padding:10px;">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <form method="post"
+        hx-post="{% if modo == 'nuevo' %}{% url 'catalogo:variante_nueva' producto_id=producto.id %}{% else %}{% url 'catalogo:variante_editar' pk=variante.id %}{% endif %}"
+        hx-target="#variantes_panel"
+        hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="input-field">
+      {{ form.sku }}
+      <label class="active" for="{{ form.sku.id_for_label }}">SKU</label>
+      {% if form.sku.errors %}<span class="red-text">{{ form.sku.errors }}</span>{% endif %}
+    </div>
+
+    <div class="input-field">
+      {{ form.codigo_barras }}
+      <label class="active" for="{{ form.codigo_barras.id_for_label }}">Código de barras</label>
+      {% if form.codigo_barras.errors %}<span class="red-text">{{ form.codigo_barras.errors }}</span>{% endif %}
+    </div>
+
+    <div class="row">
+      <div class="input-field col s12 m6">
+        {{ form.precio }}
+        <label class="active" for="{{ form.precio.id_for_label }}">Precio</label>
+        {% if form.precio.errors %}<span class="red-text">{{ form.precio.errors }}</span>{% endif %}
+      </div>
+      <div class="input-field col s12 m6">
+        {{ form.costo }}
+        <label class="active" for="{{ form.costo.id_for_label }}">Costo</label>
+        {% if form.costo.errors %}<span class="red-text">{{ form.costo.errors }}</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="input-field col s12 m6">
+        {{ form.talle }}
+        <label class="active" for="{{ form.talle.id_for_label }}">Talle</label>
+        {% if form.talle.errors %}<span class="red-text">{{ form.talle.errors }}</span>{% endif %}
+        <span class="grey-text" style="font-size:12px;">Obligatorio</span>
+      </div>
+      <div class="input-field col s12 m6">
+        {{ form.color }}
+        <label class="active" for="{{ form.color.id_for_label }}">Color</label>
+        {% if form.color.errors %}<span class="red-text">{{ form.color.errors }}</span>{% endif %}
+        <span class="grey-text" style="font-size:12px;">Obligatorio</span>
+      </div>
+    </div>
+
+    <p>
+      <label>
+        {{ form.activo }}
+        <span>Activa</span>
+      </label>
+      {% if form.activo.errors %}<span class="red-text">{{ form.activo.errors }}</span>{% endif %}
+    </p>
+
+    <div class="right-align">
+      <button type="submit" class="btn-large">
+        <i class="material-icons left">save</i>Guardar
+      </button>
+
+      {% if modo == "editar" %}
+        <button type="button" class="btn-large red"
+                hx-post="{% url 'catalogo:variante_eliminar' pk=variante.id %}"
+                hx-target="#variantes_panel"
+                hx-swap="innerHTML"
+                hx-confirm="¿Eliminar variante?">
+          <i class="material-icons left">delete</i>Eliminar
+        </button>
+      {% endif %}
+    </div>
+  </form>
+</div>

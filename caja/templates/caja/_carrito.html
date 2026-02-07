@@ -1,0 +1,29 @@
+{% if not items %}
+  <p class="grey-text">Carrito vacío.</p>
+{% else %}
+  <ul class="collection">
+    {% for it in items %}
+      <li class="collection-item">
+        <div>
+          <strong>{{ it.variante.sku }}</strong><br>
+          <span class="grey-text">{{ it.variante.producto.nombre }}</span>
+          <span class="right"><strong>${{ it.subtotal }}</strong></span>
+
+          <div style="display:flex; gap:10px; align-items:center; margin-top:10px;">
+            <form hx-post="{% url 'caja:carrito_set_qty' it.variante.id %}" hx-target="#carrito" hx-swap="innerHTML">
+              {% csrf_token %}
+              <input type="number" name="qty" min="1" value="{{ it.qty }}" style="max-width:90px;">
+              <button class="btn grey darken-1" type="submit">Actualizar</button>
+            </form>
+
+            <form hx-post="{% url 'caja:carrito_quitar' it.variante.id %}" hx-target="#carrito" hx-swap="innerHTML">
+              {% csrf_token %}
+              <button class="btn red" type="submit">Quitar</button>
+            </form>
+          </div>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+  <h5 style="text-align:right;">Total: ${{ total }}</h5>
+{% endif %}

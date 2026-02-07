@@ -1,0 +1,27 @@
+<div>
+  <h5 style="margin-top:0;">Stock por sucursal</h5>
+  <p class="grey-text" style="margin-top:-8px;">SKU: <b>{{ variante.sku }}</b></p>
+
+  <form method="post"
+        hx-post="{% url 'catalogo:stock_modal' variante_id=variante.id %}"
+        hx-target="#variantes_panel"
+        hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="input-field">
+      {{ form.sucursal }}
+      <label>Sucursal</label>
+    </div>
+
+    <div class="input-field">
+      {{ form.cantidad }}
+      <label for="{{ form.cantidad.id_for_label }}">Cantidad</label>
+    </div>
+
+    <div class="right-align">
+      <button type="submit" class="btn-large">
+        <i class="material-icons left">save</i>Guardar
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,68 @@
+<div>
+  <h5 style="margin-top:0;">Generador de variantes</h5>
+  <p class="grey-text" style="margin-top:-10px;"><b>{{ producto.nombre }}</b></p>
+
+  {% if error_msg %}
+    <div class="card-panel red lighten-4 red-text" style="padding:10px;">
+      {{ error_msg }}
+    </div>
+  {% endif %}
+
+  <form method="post"
+        hx-post="{% url 'catalogo:variantes_generador' producto_id=producto.id %}"
+        hx-target="#variantes_panel"
+        hx-swap="innerHTML">
+    {% csrf_token %}
+
+    <div class="row" style="margin-bottom:0;">
+      <div class="input-field col s12">
+        {{ form.talles }}
+        <label class="active" for="{{ form.talles.id_for_label }}">Talles (coma)</label>
+        <span class="grey-text" style="font-size:12px;">Ej: S,M,L,XL</span>
+        {% if form.talles.errors %}<span class="red-text">{{ form.talles.errors }}</span>{% endif %}
+      </div>
+
+      <div class="input-field col s12">
+        {{ form.colores }}
+        <label class="active" for="{{ form.colores.id_for_label }}">Colores (coma)</label>
+        <span class="grey-text" style="font-size:12px;">Ej: Negro,Blanco</span>
+        {% if form.colores.errors %}<span class="red-text">{{ form.colores.errors }}</span>{% endif %}
+      </div>
+
+      <div class="input-field col s12">
+        {{ form.codigo_barras_base }}
+        <label class="active" for="{{ form.codigo_barras_base.id_for_label }}">Código de barras base (opcional)</label>
+        <span class="grey-text" style="font-size:12px;">
+          Si lo cargás, se asigna a cada variante con sufijo incremental (001, 002, ...).
+        </span>
+        {% if form.codigo_barras_base.errors %}<span class="red-text">{{ form.codigo_barras_base.errors }}</span>{% endif %}
+      </div>
+
+      <div class="input-field col s12 m6">
+        {{ form.precio }}
+        <label class="active" for="{{ form.precio.id_for_label }}">Precio</label>
+        {% if form.precio.errors %}<span class="red-text">{{ form.precio.errors }}</span>{% endif %}
+      </div>
+
+      <div class="input-field col s12 m6">
+        {{ form.costo }}
+        <label class="active" for="{{ form.costo.id_for_label }}">Costo</label>
+        {% if form.costo.errors %}<span class="red-text">{{ form.costo.errors }}</span>{% endif %}
+      </div>
+
+      <div class="input-field col s12" style="margin-top:8px;">
+        <label>
+          {{ form.activo }}
+          <span>Activas</span>
+        </label>
+        {% if form.activo.errors %}<span class="red-text">{{ form.activo.errors }}</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="right-align" style="margin-top:10px;">
+      <button class="btn-large" type="submit">
+        <i class="material-icons left">bolt</i>Generar
+      </button>
+    </div>
+  </form>
+</div>

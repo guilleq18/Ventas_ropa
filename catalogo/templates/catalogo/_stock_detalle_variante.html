@@ -1,0 +1,57 @@
+<div data-variante-id="{{ variante.id }}">
+  <h5 style="margin-top:0;">Stock por sucursal</h5>
+  <p class="grey-text" style="margin-top:-10px;">
+    <b>{{ variante.producto.nombre }}</b> · {{ variante.sku }}
+  </p>
+
+  <table class="striped">
+    <thead>
+      <tr>
+        <th>Sucursal</th>
+        <th class="right-align">Cantidad</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.sucursal.nombre }}</td>
+          <td class="right-align" style="min-width:160px;">
+            <form
+                hx-post="{% url 'catalogo:variante_stock_set' %}"
+                hx-trigger="change delay:250ms"
+                hx-target="#variantes_panel"
+                hx-swap="innerHTML"
+                onsubmit="return false;"
+            >
+
+              {% csrf_token %}
+              <input type="hidden" name="variante_id" value="{{ variante.id }}">
+              <input type="hidden" name="sucursal_id" value="{{ r.sucursal.id }}">
+
+              <input type="number"
+                     name="cantidad"
+                     min="0"
+                     value="{{ r.cantidad }}"
+                     class="stock-input"
+                     style="margin:0; text-align:right;">
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+
+    <tfoot>
+      <tr>
+        <th>Total</th>
+        <th class="right-align">{{ total }}</th>
+      </tr>
+    </tfoot>
+  </table>
+
+  <div class="right-align" style="margin-top:12px;">
+    <a class="btn grey" href="javascript:void(0)" onclick="document.body.dispatchEvent(new Event('closeModal'))">
+      Cerrar
+    </a>
+  </div>
+</div>

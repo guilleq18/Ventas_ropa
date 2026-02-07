@@ -1,0 +1,30 @@
+<ul class="collection">
+  {% for p in productos %}
+    <li class="collection-item">
+      <div>
+        <b>{{ p.nombre }}</b>
+        <span class="grey-text"> · {{ p.categoria.nombre|default:"Sin categoría" }}</span>
+        {% if p.categoria and not p.categoria.activa %}
+            <span class="new badge orange" data-badge-caption="Cat. inactiva"></span>
+        {% endif %}
+        {% if not p.activo %}<span class="new badge red" data-badge-caption="Inactivo"></span>{% endif %}
+
+        <a class="secondary-content"
+          href="javascript:void(0)"
+          hx-get="{% url 'catalogo:producto_editar' pk=p.id %}"
+          hx-target="#modal_body"
+          hx-swap="innerHTML">
+          <i class="material-icons">edit</i>
+        </a>
+
+        <a class="secondary-content" style="margin-right:34px; cursor:pointer;"
+           hx-get="{% url 'catalogo:variantes_panel' producto_id=p.id %}"
+           hx-target="#variantes_panel">
+          <i class="material-icons">chevron_right</i>
+        </a>
+      </div>
+    </li>
+  {% empty %}
+    <li class="collection-item grey-text">Sin productos.</li>
+  {% endfor %}
+</ul>

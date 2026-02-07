@@ -1,0 +1,62 @@
+<div>
+  <h5 style="margin-top:0;">
+    {% if modo == "nuevo" %}Nuevo producto{% else %}Editar producto{% endif %}
+  </h5>
+
+  {% if error_msg %}
+    <div class="card-panel red lighten-4 red-text text-darken-4" style="padding:10px;">
+      {{ error_msg }}
+    </div>
+  {% endif %}
+
+  <form method="post"
+        hx-post="{% if modo == 'nuevo' %}{% url 'catalogo:producto_nuevo' %}{% else %}{% url 'catalogo:producto_editar' pk=producto.id %}{% endif %}"
+        hx-target="#productos_lista"
+        hx-swap="innerHTML"
+        hx-include="#csrf-holder">
+    {% csrf_token %}
+
+    <div class="input-field">
+      {{ form.nombre }}
+      <label for="{{ form.nombre.id_for_label }}">Nombre</label>
+    </div>
+
+    <div class="input-field">
+      {# forzamos textarea de Materialize #}
+      <textarea
+        id="{{ form.descripcion.id_for_label }}"
+        name="{{ form.descripcion.html_name }}"
+        class="materialize-textarea"
+      >{{ form.descripcion.value|default_if_none:"" }}</textarea>
+      <label for="{{ form.descripcion.id_for_label }}">Descripción</label>
+    </div>
+
+    <div class="input-field">
+      {{ form.categoria }}
+      <label for="{{ form.categoria.id_for_label }}">Categoría</label>
+    </div>
+
+    <p style="margin-top:18px;">
+      <label>
+        {{ form.activo }}
+        <span>Activo</span>
+      </label>
+    </p>
+
+    <div class="right-align" style="margin-top:18px;">
+      <button type="submit" class="btn-large">
+        <i class="material-icons left">save</i>Guardar
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+  // Re-init Materialize solo dentro del modal
+  if (typeof M !== "undefined") {
+    M.updateTextFields();
+    M.FormSelect.init(document.querySelectorAll('#modal_body select'));
+    const ta = document.querySelector('#modal_body textarea.materialize-textarea');
+    if (ta && M.textareaAutoResize) M.textareaAutoResize(ta);
+  }
+</script>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caja</title>
+
+  <!-- Materialize (Material Design) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/js/materialize.min.js"></script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+  <style>
+    .pos-sticky { position: sticky; bottom: 0; z-index: 10; }
+    .touch-btn { height: 48px; line-height: 48px; }
+  </style>
+</head>
+<body class="grey lighten-4">
+  <nav class="blue">
+    <div class="nav-wrapper container">
+      <span class="brand-logo">Caja</span>
+      <ul class="right">
+        <li><a href="/admin/" class="waves-effect waves-light">Admin</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container" style="margin-top: 18px;">
+    <div class="row">
+
+      <!-- Col izquierda: búsqueda -->
+      <div class="col s12 m6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Buscar (SKU)</span>
+
+            <div class="input-field">
+              <input id="q" name="q" type="text"
+                autocomplete="off"
+                placeholder="Ej: REM-BAS-M-NEG o Remera o 779..."
+                hx-get="{% url 'caja:buscar' %}"
+                hx-trigger="keyup changed delay:300ms"
+                hx-target="#resultados"
+                hx-swap="innerHTML">
+              <label for="q">SKU / nombre / código de barras</label>
+            </div>
+
+            <div id="resultados">
+              {% include "caja/_resultados.html" with results=None %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Col derecha: carrito -->
+      <div class="col s12 m6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Carrito</span>
+            <div id="carrito">
+              {% include "caja/_carrito.html" with items=None total=0 %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Barra inferior sticky (móvil friendly) -->
+    <div class="card pos-sticky">
+      <div class="card-content">
+        <form
+          hx-post="{% url 'caja:confirmar' %}"
+          hx-target="#confirm_res"
+          hx-swap="innerHTML"
+        >
+          {% csrf_token %}
+
+          <div class="row" style="margin-bottom:0;">
+            <div class="input-field col s12 m4">
+              <select name="sucursal_id" required>
+                <option value="" disabled selected>Elegí sucursal</option>
+                {% for s in sucursales %}
+                  <option value="{{ s.id }}">{{ s.nombre }}</option>
+                {% endfor %}
+              </select>
+              <label>Sucursal</label>
+            </div>
+
+            <div class="input-field col s12 m4">
+              <select name="medio_pago">
+                <option value="EFECTIVO" selected>Efectivo</option>
+                <option value="DEBITO">Débito</option>
+                <option value="CREDITO">Crédito</option>
+                <option value="TRANSFERENCIA">Transferencia</option>
+                <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+              </select>
+              <label>Medio de pago</label>
+            </div>
+
+            <div class="col s12 m4" style="display:flex; gap:10px; align-items:center; justify-content:flex-end;">
+              <button class="btn-large waves-effect waves-light green touch-btn" type="submit">
+                Confirmar venta
+              </button>
+            </div>
+          </div>
+        </form>
+
+        <div id="confirm_res" style="margin-top: 10px;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var elems = document.querySelectorAll('select');
+      M.FormSelect.init(elems);
+    });
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      // Re-inicializa selects si el swap tocó el form
+      var elems = document.querySelectorAll('select');
+      M.FormSelect.init(elems);
+    });
+  </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById("q");
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+
+        const q = input.value.trim();
+        if (!q) return;
+
+        htmx.ajax("POST", "{% url 'caja:scan_add' %}", {
+          target: "#carrito",
+          swap: "innerHTML",
+          values: { q },
+          headers: { "X-CSRFToken": "{{ csrf_token }}" }
+        });
+
+        // opcional: limpiar input para el próximo escaneo
+        input.value = "";
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
