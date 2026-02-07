@@ -13,10 +13,55 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
   <style>
-    .pos-sticky { position: sticky; bottom: 0; z-index: 10; }
-    .touch-btn { height: 48px; line-height: 48px; }
+    .pos-sticky{
+      position: sticky;
+      bottom: 0;
+      z-index: 999;
+      border-top: 1px solid rgba(0,0,0,.08);
+    }
+    .pos-sticky .card-content{
+      padding: 12px 16px;
+    }
+    .pos-sticky .controls{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+      margin:0;
+    }
+    .pos-sticky .left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .pos-sticky .right{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .touch-btn{ height:48px; line-height:48px; }
+    .chip.sucursal-chip{
+      font-weight:600;
+    }
+    @media (max-width: 600px){
+      .pos-sticky .controls{
+        gap:10px;
+      }
+      .pos-sticky .right{
+        width:100%;
+        justify-content:stretch;
+      }
+      .pos-sticky .right .btn-large{
+        width:100%;
+      }
+    }
   </style>
 </head>
+
 <body class="grey lighten-4">
   <nav class="blue">
     <div class="nav-wrapper container">
@@ -38,12 +83,12 @@
 
             <div class="input-field">
               <input id="q" name="q" type="text"
-                autocomplete="off"
-                placeholder="Ej: REM-BAS-M-NEG o Remera o 779..."
-                hx-get="{% url 'caja:buscar' %}"
-                hx-trigger="keyup changed delay:300ms"
-                hx-target="#resultados"
-                hx-swap="innerHTML">
+                     autocomplete="off"
+                     placeholder="Ej: REM-BAS-M-NEG o Remera o 779..."
+                     hx-get="{% url 'caja:buscar' %}"
+                     hx-trigger="keyup changed delay:300ms"
+                     hx-target="#resultados"
+                     hx-swap="innerHTML">
               <label for="q">SKU / nombre / código de barras</label>
             </div>
 
@@ -60,7 +105,7 @@
           <div class="card-content">
             <span class="card-title">Carrito</span>
             <div id="carrito">
-              {% include "caja/_carrito.html" with items=None total=0 %}
+              {% include "caja/_carrito.html" with items=cart_items total=cart_total %}
             </div>
           </div>
         </div>
@@ -77,30 +122,30 @@
           hx-swap="innerHTML"
         >
           {% csrf_token %}
+          <input type="hidden" name="confirm_token" value="{{ confirm_token }}">
 
-          <div class="row" style="margin-bottom:0;">
-            <div class="input-field col s12 m4">
-              <select name="sucursal_id" required>
-                <option value="" disabled selected>Elegí sucursal</option>
-                {% for s in sucursales %}
-                  <option value="{{ s.id }}">{{ s.nombre }}</option>
-                {% endfor %}
-              </select>
-              <label>Sucursal</label>
+          <div class="controls">
+            <!-- Izquierda: sucursal fija + medio de pago -->
+            <div class="left">
+              <span class="grey-text text-darken-1">Sucursal</span>
+              <div class="chip sucursal-chip">
+                {{ sucursal.nombre }}
+              </div>
+
+              <div class="input-field" style="min-width:240px; margin:0;">
+                <select name="medio_pago">
+                  <option value="EFECTIVO" selected>Efectivo</option>
+                  <option value="DEBITO">Débito</option>
+                  <option value="CREDITO">Crédito</option>
+                  <option value="TRANSFERENCIA">Transferencia</option>
+                  <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+                </select>
+                <label>Medio de pago</label>
+              </div>
             </div>
 
-            <div class="input-field col s12 m4">
-              <select name="medio_pago">
-                <option value="EFECTIVO" selected>Efectivo</option>
-                <option value="DEBITO">Débito</option>
-                <option value="CREDITO">Crédito</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
-              </select>
-              <label>Medio de pago</label>
-            </div>
-
-            <div class="col s12 m4" style="display:flex; gap:10px; align-items:center; justify-content:flex-end;">
+            <!-- Derecha: acción -->
+            <div class="right">
               <button class="btn-large waves-effect waves-light green touch-btn" type="submit">
                 Confirmar venta
               </button>
@@ -108,7 +153,7 @@
           </div>
         </form>
 
-        <div id="confirm_res" style="margin-top: 10px;"></div>
+        <div id="confirm_res" style="margin-top:10px;"></div>
       </div>
     </div>
 
@@ -119,34 +164,44 @@
       var elems = document.querySelectorAll('select');
       M.FormSelect.init(elems);
     });
+
     document.body.addEventListener('htmx:afterSwap', function(evt) {
-      // Re-inicializa selects si el swap tocó el form
       var elems = document.querySelectorAll('select');
       M.FormSelect.init(elems);
     });
   </script>
+
   <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const input = document.getElementById("q");
+    document.addEventListener("DOMContentLoaded", () => {
+      const input = document.getElementById("q");
 
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
 
-        const q = input.value.trim();
-        if (!q) return;
+          const q = input.value.trim();
+          if (!q) return;
 
-        htmx.ajax("POST", "{% url 'caja:scan_add' %}", {
-          target: "#carrito",
-          swap: "innerHTML",
-          values: { q },
-          headers: { "X-CSRFToken": "{{ csrf_token }}" }
-        });
+          htmx.ajax("POST", "{% url 'caja:scan_add' %}", {
+            target: "#carrito",
+            swap: "innerHTML",
+            values: { q },
+            headers: { "X-CSRFToken": "{{ csrf_token }}" }
+          });
 
-        // opcional: limpiar input para el próximo escaneo
-        input.value = "";
-      }
+          input.value = "";
+        }
+      });
     });
+  </script>
+  <script>
+  // Toast de Materialize desde eventos HTMX (HX-Trigger)
+  document.body.addEventListener("posToast", function (evt) {
+    if (window.M && M.toast) {
+      M.toast({ html: evt.detail.message });
+    } else {
+      alert(evt.detail.message);
+    }
   });
 </script>
 

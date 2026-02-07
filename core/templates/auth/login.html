@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ingresar | Sistema de Ventas</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+  <style>
+    body { background: #f3f4f6; }
+    .auth-wrap { min-height: 100vh; display:flex; align-items:center; }
+    .auth-card { border-radius: 14px; overflow:hidden; }
+    .auth-header {
+      background: linear-gradient(135deg, #0d47a1, #1565c0);
+      padding: 22px 22px;
+      color: #fff;
+    }
+    .auth-header h5 { margin:0; font-weight:600; }
+    .auth-header p { margin:6px 0 0 0; opacity:.9; }
+    .auth-body { padding: 22px; }
+    .helper-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .btn-full { width:100%; border-radius:10px; }
+    .input-field input:focus + label { color:#1565c0 !important; }
+    .input-field input:focus { border-bottom:1px solid #1565c0 !important; box-shadow:0 1px 0 0 #1565c0 !important; }
+    .small-note { font-size: .9rem; }
+  </style>
+</head>
+
+<body>
+  <div class="auth-wrap">
+    <div class="container" style="max-width:520px;">
+      <div class="card auth-card z-depth-2">
+        <div class="auth-header">
+          <h5>Sistema de Ventas</h5>
+          <p>Ingresá con tu usuario para continuar</p>
+        </div>
+
+        <div class="auth-body">
+          {% if form.non_field_errors or form.errors %}
+            <div class="card-panel red lighten-5 red-text text-darken-4" style="padding:12px; border-radius:10px;">
+              <b>No se pudo iniciar sesión.</b>
+              <div class="small-note">
+                Verificá usuario y contraseña e intentá nuevamente.
+              </div>
+            </div>
+          {% endif %}
+
+          <form method="post" novalidate>
+            {% csrf_token %}
+
+            {# Conserva el redirect cuando venís de /admin u otra pantalla #}
+            {% if next %}
+              <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+
+            <div class="input-field">
+              {{ form.username }}
+              <label for="{{ form.username.id_for_label }}">Usuario</label>
+              {% if form.username.errors %}
+                <span class="red-text small-note">{{ form.username.errors|striptags }}</span>
+              {% endif %}
+            </div>
+
+            <div class="input-field" style="position:relative;">
+              {{ form.password }}
+              <label for="{{ form.password.id_for_label }}">Contraseña</label>
+
+              <a href="#"
+                 id="togglePwd"
+                 class="grey-text text-darken-2"
+                 style="position:absolute; right:0; top:10px; font-size:.9rem;">
+                Mostrar
+              </a>
+
+              {% if form.password.errors %}
+                <span class="red-text small-note">{{ form.password.errors|striptags }}</span>
+              {% endif %}
+            </div>
+
+            <div class="helper-row" style="margin: 8px 0 18px 0;">
+              <label>
+                <input type="checkbox" />
+                <span>Recordarme</span>
+              </label>
+
+              {# Si más adelante implementás reset, cambiás este link #}
+              <span class="grey-text small-note">¿Olvidaste tu clave? Consultá al administrador</span>
+            </div>
+
+            <button class="btn blue darken-3 waves-effect waves-light btn-full" type="submit">
+              Entrar
+            </button>
+
+            <div class="center" style="margin-top:14px;">
+              <span class="grey-text small-note">
+                Uso interno — acceso solo autorizado
+              </span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="center grey-text small-note" style="margin-top:12px;">
+        © {{ now|default:"" }} Sistema de Ventas
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // Materialize labels
+      M.updateTextFields();
+
+      // Toggle password
+      const toggle = document.getElementById('togglePwd');
+      const pwd = document.getElementById('{{ form.password.id_for_label }}') || document.querySelector('input[name="password"]');
+      if (toggle && pwd) {
+        toggle.addEventListener('click', function (e) {
+          e.preventDefault();
+          const isPwd = pwd.getAttribute('type') === 'password';
+          pwd.setAttribute('type', isPwd ? 'text' : 'password');
+          toggle.textContent = isPwd ? 'Ocultar' : 'Mostrar';
+        });
+      }
+    });
+  </script>
+</body>
+</html>

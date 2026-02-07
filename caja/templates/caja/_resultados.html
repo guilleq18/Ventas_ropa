@@ -1,25 +1,55 @@
+{% load caja_extras %}
+
 {% if not results %}
   <p class="grey-text">Escribí un SKU para buscar…</p>
 {% else %}
   <ul class="collection">
     {% for v in results %}
+      {% with st=stock_map|get_item:v.id|default:0 %}
       <li class="collection-item">
-        <div>
-          <strong>{{ v.sku }}</strong> — {{ v.producto.nombre }}
-          <span class="right">${{ v.precio }}</span>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+          <!-- Info producto -->
+          <div>
+            <div>
+              <strong>{{ v.sku }}</strong> — {{ v.producto.nombre }}
+            </div>
 
-          <div style="margin-top:8px;">
-            <form hx-post="{% url 'caja:carrito_agregar' v.id %}"
-                  hx-target="#carrito"
-                  hx-swap="innerHTML">
-              {% csrf_token %}
-              <button class="btn waves-effect waves-light blue" type="submit">
-                Agregar
-              </button>
-            </form>
+            <div style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              {% if st|add:0 <= 0 %}
+                <span class="chip red lighten-4 red-text text-darken-4">Sin stock</span>
+              {% else %}
+                <span class="chip green lighten-5 green-text text-darken-2">Stock: {{ st }}</span>
+              {% endif %}
+
+              {% if sucursal %}
+                <span class="grey-text" style="font-size:12px;">{{ sucursal.nombre }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Precio + acción -->
+          <div style="text-align:right; min-width:140px;">
+            <div style="font-size:16px; font-weight:600;">
+              ${{ v.precio }}
+            </div>
+
+            <div style="margin-top:8px;">
+              <form hx-post="{% url 'caja:carrito_agregar' v.id %}"
+                    hx-target="#carrito"
+                    hx-swap="innerHTML">
+                {% csrf_token %}
+
+                <button class="btn waves-effect waves-light blue"
+                        type="submit"
+                        {% if st|add:0 <= 0 %}disabled{% endif %}>
+                  Agregar
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </li>
+      {% endwith %}
     {% endfor %}
   </ul>
 {% endif %}

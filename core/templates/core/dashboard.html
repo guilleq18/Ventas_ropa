@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Dashboard | Sistema de Ventas</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+  <style>
+    body { background:#f3f4f6; }
+    nav .brand-logo { font-size:1.2rem; font-weight:600; }
+    .page-title { margin:18px 0 4px 0; font-weight:600; }
+    .muted { color:#546e7a; }
+    .card { border-radius:14px; }
+    .kpi-title { font-size:.95rem; color:#546e7a; }
+    .kpi-value { margin:6px 0 0 0; font-weight:700; }
+    .chip-soft { background:#e3f2fd; color:#0d47a1; font-weight:600; }
+    .btn-round { border-radius:10px; width:100%; }
+    .table-wrap { overflow:auto; }
+  </style>
+</head>
+
+<body>
+
+  <nav class="blue darken-3">
+    <div class="nav-wrapper container">
+      <a class="brand-logo">Sistema de Ventas</a>
+      <ul class="right">
+        <li><a href="#" class="waves-effect">Usuario: {{ request.user.username }}</a></li>
+        <li><a href="{% url 'logout' %}" class="waves-effect">Salir</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="container">
+
+    <div class="row" style="margin-top:10px;">
+      <div class="col s12">
+        <div class="chip chip-soft">Hoy: {{ hoy|date:"d/m/Y" }}</div>
+        <h5 class="page-title">Panel principal</h5>
+        <div class="muted">Resumen del día, accesos rápidos y alertas operativas.</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row">
+      <div class="col s12 m6 l3">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <div class="kpi-title">Ventas hoy</div>
+            <h5 class="kpi-value">{{ kpis.ventas_hoy }}</h5>
+            <div class="muted">Operaciones registradas</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 m6 l3">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <div class="kpi-title">Ingresos hoy</div>
+            <h5 class="kpi-value">$ {{ kpis.ingresos_hoy }}</h5>
+            <div class="muted">Total facturado</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 m6 l3">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <div class="kpi-title">Ticket promedio</div>
+            <h5 class="kpi-value">$ {{ kpis.ticket_promedio }}</h5>
+            <div class="muted">Promedio por venta</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 m6 l3">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <div class="kpi-title">Stock bajo</div>
+            <h5 class="kpi-value">{{ kpis.stock_bajo }}</h5>
+            <div class="muted">Productos a reponer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accesos rápidos + Caja -->
+    <div class="row">
+      <div class="col s12 l7">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Accesos rápidos</span>
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="col s12 m6">
+                <a class="btn blue darken-2 waves-effect btn-round" href="/ventas/">
+                  Ventas / POS
+                </a>
+                <div class="muted" style="margin:8px 0 14px 0;">Registrar ventas rápido.</div>
+              </div>
+
+              <div class="col s12 m6">
+                <a class="btn teal darken-2 waves-effect btn-round" href="/catalogo/">
+                  Productos / Catálogo
+                </a>
+                <div class="muted" style="margin:8px 0 14px 0;">Altas, edición y stock.</div>
+              </div>
+
+              <div class="col s12 m6">
+                <a class="btn brown darken-2 waves-effect btn-round" href="/caja/">
+                  Caja
+                </a>
+                <div class="muted" style="margin:8px 0 14px 0;">Ingresos/egresos y cierres.</div>
+              </div>
+
+              <div class="col s12 m6">
+                <a class="btn grey darken-2 waves-effect btn-round" href="/admin/">
+                  Admin (mantenimiento)
+                </a>
+                <div class="muted" style="margin:8px 0 14px 0;">Uso puntual, no diario.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 l5">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Estado de caja</span>
+
+            <div class="card-panel blue lighten-5 blue-text text-darken-4" style="border-radius:12px;">
+              <div style="font-weight:700; font-size:1.1rem;">Saldo actual: $ {{ caja.saldo_actual }}</div>
+              <div class="muted">Resumen del día</div>
+            </div>
+
+            <ul class="collection" style="border-radius:12px; overflow:hidden;">
+              <li class="collection-item">
+                <b>Ingresos hoy:</b> $ {{ caja.ingresos_hoy }}
+              </li>
+              <li class="collection-item">
+                <b>Egresos hoy:</b> $ {{ caja.egresos_hoy }}
+              </li>
+            </ul>
+
+            <div class="muted">Próximo paso: agregar botón de “Cierre de caja”.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Últimas ventas + Alertas -->
+    <div class="row">
+      <div class="col s12 l8">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Últimas ventas</span>
+
+            <div class="table-wrap">
+              <table class="striped">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>N°</th>
+                    <th>Cliente</th>
+                    <th>Total</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if ultimas_ventas %}
+                    {% for v in ultimas_ventas %}
+                      <tr>
+                        <td>{{ v.fecha }}</td>
+                        <td>{{ v.nro }}</td>
+                        <td>{{ v.cliente }}</td>
+                        <td>$ {{ v.total }}</td>
+                        <td>{{ v.estado }}</td>
+                      </tr>
+                    {% endfor %}
+                  {% else %}
+                    <tr>
+                      <td colspan="5" class="muted">Aún no hay ventas registradas hoy.</td>
+                    </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+
+            <div style="margin-top:12px;">
+              <a class="btn-flat waves-effect" href="/ventas/">Ver todas</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 l4">
+        <div class="card white z-depth-1">
+          <div class="card-content">
+            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Alertas</span>
+
+            {% if alertas %}
+              <ul class="collection" style="border-radius:12px; overflow:hidden;">
+                {% for a in alertas %}
+                  <li class="collection-item">{{ a.texto }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <div class="card-panel green lighten-5 green-text text-darken-4" style="border-radius:12px;">
+                Todo en orden. Sin alertas por ahora.
+              </div>
+            {% endif %}
+
+            <div class="card-panel amber lighten-5 amber-text text-darken-4" style="border-radius:12px;">
+              Pendientes sugeridos:
+              <ul style="margin:8px 0 0 18px;">
+                <li>Controlar stock mínimo</li>
+                <li>Revisar precios sin definir</li>
+                <li>Cierre de caja al final del día</li>
+              </ul>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+</html>
