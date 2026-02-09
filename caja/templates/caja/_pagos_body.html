@@ -1,4 +1,4 @@
-{# caja/_pagos_body.html #}
+{# templates/caja/_pagos_body.html #}
 
 {% if total_base <= 0 %}
   <p class="grey-text">Agregá productos al carrito.</p>
@@ -108,9 +108,12 @@
 
 {% endif %}
 
-{# ✅ OOB: actualiza los totales del header fijo (SIEMPRE) #}
-<!--
-<div id="pagos_totales" hx-swap-oob="innerHTML">
-  {% include "caja/_pagos_totales.html" %}
-</div>
--->
+
+{% if not suppress_oob %}
+  <div hx-swap-oob="innerHTML:#pagos_totales" style="display:none">
+    {% include "caja/_pagos_totales.html" %}
+  </div>
+
+  <div hx-swap-oob="innerHTML:#total_cobrar_card" style="display:none">{{ total_cobrar }}</div>
+  <div hx-swap-oob="innerHTML:#total_cobrar_confirm" style="display:none">{{ total_cobrar }}</div>
+{% endif %}

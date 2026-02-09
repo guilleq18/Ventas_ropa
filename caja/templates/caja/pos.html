@@ -167,9 +167,10 @@
                 <span class="card-title" style="margin:0;">Carrito</span>
 
                 <div class="card-head-actions">
-                  <span class="grey-text text-darken-2">
-                    Total: <strong id="carrito_total_header">${{ cart_total }}</strong>
+                  <span class="grey-text text-darken-1">
+                    Total Items: $<strong id="total_cobrar_card">{{ total_cobrar }}</strong>
                   </span>
+
 
                   <form hx-post="{% url 'caja:carrito_vaciar' %}"
                         hx-target="#carrito_body"
@@ -251,7 +252,7 @@
               <div class="chip sucursal-chip">{{ sucursal.nombre }}</div>
 
               <span class="grey-text text-darken-1">
-                Total: <strong>${{ cart_total }}</strong>
+                Total a cobrar: $<strong id="total_cobrar_confirm">{{ total_cobrar }}</strong>
               </span>
             </div>
 

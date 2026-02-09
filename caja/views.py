@@ -17,6 +17,7 @@ from core.models import Sucursal
 from catalogo.models import Variante, StockSucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from ventas.services import confirmar_venta
+from django.db import transaction
 
 
 # =========================
@@ -268,10 +269,23 @@ def _render_cart_with_toast(request, message: str):
 
 
 def _render_cart(request):
-    cart = _cart_get(request)
-    total = _cart_total(cart)
+    cart = _cart_get(request)  # ✅ SIEMPRE primero
 
-    variante_ids = [int(k) for k in cart.keys()] if cart else []
+    # === Total base del carrito ===
+    try:
+        total_base = _cart_total(cart).quantize(Decimal("0.01"))
+    except Exception:
+        total_base = Decimal("0.00")
+
+    # compat (tu template usa {{ total }} en algunos lados)
+    total = total_base
+
+    # === Items del carrito ===
+    variante_ids = []
+    try:
+        variante_ids = [int(k) for k in cart.keys()]
+    except Exception:
+        variante_ids = []
 
     variantes = {
         v.id: v
@@ -290,7 +304,7 @@ def _render_cart(request):
             continue
 
         try:
-            qty = int(item.get("qty", 0) or 0)
+            qty = int(item.get("qty", 0))
         except Exception:
             qty = 0
 
@@ -309,6 +323,7 @@ def _render_cart(request):
             "subtotal": (precio * qty).quantize(Decimal("0.01")),
         })
 
+    # === Sucursal + stock ===
     sucursal = _get_pos_sucursal()
 
     stock_map = {}
@@ -320,15 +335,33 @@ def _render_cart(request):
         )
         stock_map = {r["variante_id"]: r["cantidad"] for r in stock_rows}
 
-    # asegurar pagos SOLO si hay total > 0
-    payments = _payments_get(request)
-    if total > 0 and not payments:
-        _payments_save(request, [_payments_default()])
-        payments = _payments_get(request)
+    # === Pagos: NO crear pagos si el carrito está vacío ===
+    payments = _payments_get(request) or []
+    if total_base > 0 and not payments:
+        payments = [_payments_default()]
+        _payments_save(request, payments)
+        request.session.modified = True
 
-    total_base = total
-    pay_ctx = _payments_build_ui_and_totals(payments, total_base)
+    # === Recargos / total a cobrar (Total + Recargos) ===
+    recargos = Decimal("0.00")
+    for p in payments:
+        if (p.get("tipo") or "").strip() == "CREDITO":
+            try:
+                m = Decimal(str(p.get("monto", "0") or "0"))
+                rp = Decimal(str(p.get("recargo_pct") or "0"))
+            except Exception:
+                m, rp = Decimal("0"), Decimal("0")
 
+            if m > 0 and rp > 0:
+                recargos += (m * rp / Decimal("100"))
+
+    recargos = recargos.quantize(Decimal("0.01"))
+    total_cobrar = (total_base + recargos).quantize(Decimal("0.01"))
+
+    pagado = _payments_total(payments)  # incluye recargos de crédito
+    saldo = (total_cobrar - pagado).quantize(Decimal("0.01"))
+
+    # === Tarjetas ===
     tarjetas = list(
         PlanCuotas.objects.filter(activo=True)
         .values_list("tarjeta", flat=True)
@@ -338,22 +371,23 @@ def _render_cart(request):
 
     return render(request, "caja/_carrito.html", {
         "items": rows,
-        "total": total,
+        "total": total,                 # (base)
+        "total_base": total_base,        # (base)
+        "recargos": recargos,
+        "total_cobrar": total_cobrar,    # (base + recargos)
+
         "sucursal": sucursal,
         "stock_map": stock_map,
 
         # OOB pagos desde carrito
         "oob_pagos": True,
+        "payments": payments,
+        "pagado": pagado,
+        "saldo": saldo,
 
-        # para _pagos_body.html (usa payments + totales)
-        "payments": pay_ctx["ui_payments"],
-        "total_base": total_base,
-        "recargos": pay_ctx["recargos"],
-        "total_cobrar": pay_ctx["total_cobrar"],
-        "pagado": pay_ctx["pagado"],
-        "saldo": pay_ctx["saldo"],
         "tarjetas": tarjetas,
     })
+
 
 
 # =========================
@@ -750,6 +784,7 @@ def carrito_vaciar(request):
 # Confirmar
 # =========================
 
+
 @login_required
 @require_POST
 def confirmar(request):
@@ -765,14 +800,16 @@ def confirmar(request):
     if not cart:
         return HttpResponse("Carrito vacío", status=400)
 
-    total_venta = _cart_total(cart).quantize(Decimal("0.01"))
+    # Total base (sin recargos)
+    total_base = _cart_total(cart).quantize(Decimal("0.01"))
 
     payments = _payments_get(request)
     if not payments:
         return HttpResponse("No hay pagos cargados.", status=400)
 
     pagos_limpios = []
-    suma = Decimal("0")
+    suma_montos_base = Decimal("0.00")      # suma de montos sin recargo
+    suma_recargos = Decimal("0.00")         # suma recargos por crédito
 
     for p in payments:
         tipo = (p.get("tipo") or "").strip()
@@ -780,38 +817,40 @@ def confirmar(request):
             return HttpResponse("Pago sin tipo.", status=400)
 
         try:
-            monto = Decimal(str(p.get("monto", "0") or "0"))
+            monto = Decimal(str(p.get("monto", "0") or "0")).quantize(Decimal("0.01"))
         except Exception:
             return HttpResponse("Monto inválido en pagos.", status=400)
 
         if monto <= 0:
             continue
 
+        # Defaults robustos
         try:
             cuotas = int(p.get("cuotas") or 1)
         except Exception:
             cuotas = 1
 
         try:
-            recargo_pct = Decimal(str(p.get("recargo_pct") or "0"))
+            recargo_pct = Decimal(str(p.get("recargo_pct") or "0")).quantize(Decimal("0.01"))
         except Exception:
-            recargo_pct = Decimal("0")
+            recargo_pct = Decimal("0.00")
 
         referencia = (p.get("referencia") or "").strip()
 
+        # Validaciones crédito
         if tipo == "CREDITO":
             if cuotas < 1:
                 return HttpResponse("Cuotas inválidas en pago con crédito.", status=400)
             if recargo_pct < 0:
                 return HttpResponse("Recargo % inválido en crédito.", status=400)
 
+        # Cálculos
         recargo_monto = (monto * recargo_pct / Decimal("100")).quantize(Decimal("0.01"))
-        coeficiente = (Decimal("1") + (recargo_pct / Decimal("100"))).quantize(Decimal("0.0001"))
+        coeficiente = (Decimal("1.00") + (recargo_pct / Decimal("100"))).quantize(Decimal("0.0001"))
 
+        suma_montos_base += monto
         if tipo == "CREDITO":
-            suma += (monto + recargo_monto)
-        else:
-            suma += monto
+            suma_recargos += recargo_monto
 
         pagos_limpios.append({
             "tipo": tipo,
@@ -830,89 +869,94 @@ def confirmar(request):
             "pos_marca": (p.get("pos_marca") or "").strip(),
             "pos_ultimos4": (p.get("pos_ultimos4") or "").strip(),
 
-            "tarjeta": (p.get("tarjeta") or "").strip(),
             "plan_id": (p.get("plan_id") or "").strip(),
         })
 
-    if suma.quantize(Decimal("0.01")) != total_venta:
+    suma_montos_base = suma_montos_base.quantize(Decimal("0.01"))
+    suma_recargos = suma_recargos.quantize(Decimal("0.01"))
+
+    # ✅ Regla correcta:
+    # 1) Los montos base deben cubrir el total del carrito
+    if suma_montos_base != total_base:
         return HttpResponse(
-            f"Pagos incompletos. Total ${total_venta} - Pagado ${suma.quantize(Decimal('0.01'))}.",
+            f"Pagos base incompletos. Total ${total_base} - Base cargada ${suma_montos_base}.",
             status=400
         )
 
-    venta = Venta.objects.create(
-        sucursal=sucursal,
-        estado=Venta.Estado.BORRADOR,
-        medio_pago=Venta.MedioPago.EFECTIVO,  # compat
-    )
+    total_cobrar = (total_base + suma_recargos).quantize(Decimal("0.01"))
+    total_pagado = _payments_total(pagos_limpios).quantize(Decimal("0.01"))  # incluye recargos
 
-    for vid_str, item in cart.items():
-        v = get_object_or_404(Variante, id=int(vid_str), activo=True)
-        qty = int(item["qty"])
-        precio = Decimal(item["precio"])
-        VentaItem.objects.create(
-            venta=venta,
-            variante=v,
-            cantidad=qty,
-            precio_unitario=precio,
-        )
-
-    for p in pagos_limpios:
-        plan_obj = None
-        if p.get("plan_id"):
-            try:
-                plan_obj = PlanCuotas.objects.filter(id=int(p["plan_id"]), activo=True).first()
-            except (TypeError, ValueError):
-                plan_obj = None
-
-        VentaPago.objects.create(
-            venta=venta,
-            plan=plan_obj,
-
-            tipo=p["tipo"],
-            monto=p["monto"],
-            cuotas=p["cuotas"],
-
-            recargo_pct=p["recargo_pct"],
-            recargo_monto=p["recargo_monto"],
-            coeficiente=p["coeficiente"],
-
-            referencia=p["referencia"],
-
-            pos_proveedor=p.get("pos_proveedor", ""),
-            pos_terminal_id=p.get("pos_terminal_id", ""),
-            pos_lote=p.get("pos_lote", ""),
-            pos_cupon=p.get("pos_cupon", ""),
-            pos_autorizacion=p.get("pos_autorizacion", ""),
-            pos_marca=p.get("pos_marca", ""),
-            pos_ultimos4=(p.get("pos_ultimos4", "") or "")[:4],
+    if total_pagado != total_cobrar:
+        return HttpResponse(
+            f"Pagos incompletos. Total a cobrar ${total_cobrar} - Pagado ${total_pagado}.",
+            status=400
         )
 
     try:
-        confirmar_venta(venta)
+        with transaction.atomic():
+            venta = Venta.objects.create(
+                sucursal=sucursal,
+                estado=Venta.Estado.BORRADOR,
+                medio_pago=Venta.MedioPago.EFECTIVO,  # compat
+                total=total_cobrar,                   # ✅ total final (incluye recargos)
+            )
+
+            # Items
+            for vid_str, item in cart.items():
+                v = get_object_or_404(Variante, id=int(vid_str), activo=True)
+                qty = int(item["qty"])
+                precio = Decimal(item["precio"]).quantize(Decimal("0.01"))
+                VentaItem.objects.create(
+                    venta=venta,
+                    variante=v,
+                    cantidad=qty,
+                    precio_unitario=precio,
+                )
+
+            # Pagos
+            for p in pagos_limpios:
+                plan_obj = None
+                if p.get("plan_id"):
+                    try:
+                        plan_obj = PlanCuotas.objects.filter(id=int(p["plan_id"]), activo=True).first()
+                    except (TypeError, ValueError):
+                        plan_obj = None
+
+                VentaPago.objects.create(
+                    venta=venta,
+                    plan=plan_obj,
+                    tipo=p["tipo"],
+                    monto=p["monto"],
+                    cuotas=p["cuotas"],
+                    recargo_pct=p["recargo_pct"],
+                    recargo_monto=p["recargo_monto"],
+                    coeficiente=p["coeficiente"],
+                    referencia=p["referencia"],
+                    pos_proveedor=p.get("pos_proveedor", ""),
+                    pos_terminal_id=p.get("pos_terminal_id", ""),
+                    pos_lote=p.get("pos_lote", ""),
+                    pos_cupon=p.get("pos_cupon", ""),
+                    pos_autorizacion=p.get("pos_autorizacion", ""),
+                    pos_marca=p.get("pos_marca", ""),
+                    pos_ultimos4=(p.get("pos_ultimos4", "") or "")[:4],
+                )
+
+            confirmar_venta(venta)
+
     except ValidationError as e:
-        venta.estado = Venta.Estado.ANULADA
-        venta.save()
         return HttpResponse(str(e), status=400)
 
-    # limpiar sesión
+    # ✅ Reset total POS (carrito + pagos + token)
     _cart_save(request, {})
-    _payments_save(request, [_payments_default()])
-
-    # rotar token solo si OK
-    new_token = str(uuid.uuid4())
-    request.session["pos_confirm_token"] = new_token
+    _payments_save(request, [])
+    request.session["pos_confirm_token"] = str(uuid.uuid4())
     request.session.modified = True
 
-    return render(request, "caja/_confirm_ok.html", {
-        "venta": venta,
-        "new_token": new_token,
-        "payments": _payments_get(request),
-        "total": Decimal("0"),
-        "pagado": Decimal("0"),
-        "saldo": Decimal("0"),
-        "sucursal": sucursal,
-    })
+    # ✅ Esto resetea también búsqueda, resultados, selects/labels, etc.
+    resp = HttpResponse("")
+    resp["HX-Redirect"] = "/caja/"
+    return resp
+
 
 
 @login_required

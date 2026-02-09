@@ -1,62 +1,103 @@
+{# templates/caja/_carrito.html #}
 {% load caja_extras %}
 
 {% if not items %}
   <p class="grey-text">Carrito vacío.</p>
 {% else %}
-  <ul class="collection">
-    {% for it in items %}
-      {% with st=stock_map|get_item:it.variante.id|default:0 %}
-      <li class="collection-item">
-        <div>
-          <strong>{{ it.variante.sku }}</strong><br>
-          <span class="grey-text">{{ it.variante.producto.nombre }}</span>
-          <span class="right"><strong>${{ it.subtotal }}</strong></span>
 
-          <div style="margin-top:6px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            {% if st|add:0 <= 0 %}
-              <span class="chip red lighten-4 red-text text-darken-4">Sin stock</span>
-            {% else %}
-              <span class="chip green lighten-5 green-text text-darken-2">Stock: {{ st }}</span>
-            {% endif %}
+  <table class="highlight responsive-table" style="font-size:13px;">
+    <thead>
+      <tr>
+        <th style="width:42%;">Producto</th>
+        <th style="width:16%;">Stock</th>
+        <th style="width:22%;">Cant.</th>
+        <th class="right-align" style="width:12%;">Subtotal</th>
+        <th class="right-align" style="width:8%;">Acción</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for it in items %}
+        {% with st=stock_map|get_item:it.variante.id|default:0 %}
+        <tr>
+          <td style="padding-top:10px; padding-bottom:10px;">
+            <div style="font-weight:600; line-height:1.2;">{{ it.variante.sku }}</div>
+            <div class="grey-text" style="font-size:12px; line-height:1.2;">
+              {{ it.variante.producto.nombre }}
+            </div>
             {% if sucursal %}
-              <span class="grey-text" style="font-size:12px;">{{ sucursal.nombre }}</span>
+              <div class="grey-text" style="font-size:11px; margin-top:4px;">
+                {{ sucursal.nombre }}
+              </div>
             {% endif %}
-          </div>
+          </td>
 
-          <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+          <td style="padding-top:10px; padding-bottom:10px;">
+            {% if st|add:0 <= 0 %}
+              <span class="chip red lighten-4 red-text text-darken-4"
+                    style="height:24px; line-height:24px; font-size:12px;">
+                Sin stock
+              </span>
+            {% else %}
+              <span class="chip green lighten-5 green-text text-darken-2"
+                    style="height:24px; line-height:24px; font-size:12px;">
+                {{ st }}
+              </span>
+            {% endif %}
+          </td>
+
+          <td style="padding-top:10px; padding-bottom:10px;">
             <form hx-post="{% url 'caja:carrito_set_qty' it.variante.id %}"
                   hx-target="#carrito_body"
-                  hx-swap="innerHTML">
+                  hx-swap="innerHTML"
+                  hx-trigger="change from:input[name='qty'], keyup changed delay:350ms from:input[name='qty']"
+                  style="margin:0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               {% csrf_token %}
               <input type="number"
                      name="qty"
                      min="1"
                      value="{{ it.qty }}"
-                     style="max-width:90px;"
+                     style="max-width:78px; height:32px; margin:0;"
                      {% if st|add:0 > 0 %}max="{{ st }}"{% endif %}>
-              <button class="btn grey darken-1" type="submit">Actualizar</button>
             </form>
+          </td>
 
+          <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">
+            <strong>${{ it.subtotal }}</strong>
+          </td>
+
+          <td class="right-align" style="padding-top:10px; padding-bottom:10px;">
             <form hx-post="{% url 'caja:carrito_quitar' it.variante.id %}"
                   hx-target="#carrito_body"
-                  hx-swap="innerHTML">
+                  hx-swap="innerHTML"
+                  style="margin:0;">
               {% csrf_token %}
-              <button class="btn red" type="submit">Quitar</button>
+              <button class="btn-small red" type="submit" style="height:32px; line-height:32px;">
+                Quitar
+              </button>
             </form>
-          </div>
-        </div>
-      </li>
-      {% endwith %}
-    {% endfor %}
-  </ul>
+          </td>
+        </tr>
+        {% endwith %}
+      {% endfor %}
+    </tbody>
+  </table>
+
 {% endif %}
 
-{# ✅ OOB: total del header del carrito #}
-<strong id="carrito_total_header" hx-swap-oob="innerHTML">${{ total }}</strong>
 
-{# ✅ OOB: refrescar pagos cuando cambia el carrito #}
+{# Si desde el carrito también refrescamos pagos, incluimos el body SIN sus OOB (para no duplicar) #}
 {% if oob_pagos %}
-  <div id="pagos_body" hx-swap-oob="innerHTML">
-    {% include "caja/_pagos_body.html" %}
+  <div hx-swap-oob="innerHTML:#pagos_body">
+    {% include "caja/_pagos_body.html" with suppress_oob=True %}
   </div>
 {% endif %}
+
+{# Header de totales del card Pagos #}
+<div hx-swap-oob="innerHTML:#pagos_totales" style="display:none">
+  {% include "caja/_pagos_totales.html" %}
+</div>
+
+{# Totales visibles (card carrito + barra confirmar) #}
+<div hx-swap-oob="innerHTML:#total_cobrar_card" style="display:none">{{ total_cobrar }}</div>
+<div hx-swap-oob="innerHTML:#total_cobrar_confirm" style="display:none">{{ total_cobrar }}</div>
