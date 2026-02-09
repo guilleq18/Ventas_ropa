@@ -24,7 +24,9 @@
           </div>
 
           <div style="display:flex; gap:10px; align-items:center; margin-top:10px; flex-wrap:wrap;">
-            <form hx-post="{% url 'caja:carrito_set_qty' it.variante.id %}" hx-target="#carrito" hx-swap="innerHTML">
+            <form hx-post="{% url 'caja:carrito_set_qty' it.variante.id %}"
+                  hx-target="#carrito_body"
+                  hx-swap="innerHTML">
               {% csrf_token %}
               <input type="number"
                      name="qty"
@@ -35,7 +37,9 @@
               <button class="btn grey darken-1" type="submit">Actualizar</button>
             </form>
 
-            <form hx-post="{% url 'caja:carrito_quitar' it.variante.id %}" hx-target="#carrito" hx-swap="innerHTML">
+            <form hx-post="{% url 'caja:carrito_quitar' it.variante.id %}"
+                  hx-target="#carrito_body"
+                  hx-swap="innerHTML">
               {% csrf_token %}
               <button class="btn red" type="submit">Quitar</button>
             </form>
@@ -45,13 +49,14 @@
       {% endwith %}
     {% endfor %}
   </ul>
+{% endif %}
 
-  <h5 style="text-align:right;">Total: ${{ total }}</h5>
+{# ✅ OOB: total del header del carrito #}
+<strong id="carrito_total_header" hx-swap-oob="innerHTML">${{ total }}</strong>
 
-  <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:10px;">
-    <form hx-post="{% url 'caja:carrito_vaciar' %}" hx-target="#carrito" hx-swap="innerHTML">
-      {% csrf_token %}
-      <button class="btn orange darken-2" type="submit">Vaciar carrito</button>
-    </form>
+{# ✅ OOB: refrescar pagos cuando cambia el carrito #}
+{% if oob_pagos %}
+  <div id="pagos_body" hx-swap-oob="innerHTML">
+    {% include "caja/_pagos_body.html" %}
   </div>
 {% endif %}

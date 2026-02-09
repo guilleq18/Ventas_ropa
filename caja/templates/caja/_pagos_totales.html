@@ -1,0 +1,25 @@
+{# templates/caja/_pagos_totales.html #}
+
+<div class="row" style="margin:0;">
+  <div class="col s12" style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
+    <span class="grey-text text-darken-2">
+      Total: <strong>${{ total_base }}</strong>
+    </span>
+
+    <span class="grey-text text-darken-2">
+      Recargos: <strong>${{ recargos }}</strong>
+    </span>
+
+    <span class="grey-text text-darken-2">
+      Total + Recargos: <strong>${{ total_cobrar }}</strong>
+    </span>
+
+    <span class="grey-text text-darken-2">
+      Pagado Sin Recargo: <strong>${{ pagado }}</strong>
+    </span>
+
+    <span class="grey-text text-darken-2">
+      Restante Sin recargo: <strong>${{ saldo }}</strong>
+    </span>
+  </div>
+</div>

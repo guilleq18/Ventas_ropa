@@ -4,6 +4,29 @@ from django.contrib import messages
 
 from .models import Venta, VentaItem
 from .services import confirmar_venta
+from django.contrib import admin
+from .models import Venta, VentaItem, VentaPago, PlanCuotas
+
+
+@admin.register(PlanCuotas)
+class PlanCuotasAdmin(admin.ModelAdmin):
+    list_display = ("tarjeta", "cuotas", "recargo_pct", "activo")
+    list_filter = ("tarjeta", "activo")
+    search_fields = ("tarjeta",)
+    ordering = ("tarjeta", "cuotas")
+
+
+# (opcional) para ver pagos en admin de forma cómoda
+class VentaItemInline(admin.TabularInline):
+    model = VentaItem
+    extra = 0
+
+
+class VentaPagoInline(admin.TabularInline):
+    model = VentaPago
+    extra = 0
+
+
 
 
 class VentaItemInline(admin.TabularInline):

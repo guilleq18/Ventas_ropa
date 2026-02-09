@@ -1,0 +1,116 @@
+{# caja/_pagos_body.html #}
+
+{% if total_base <= 0 %}
+  <p class="grey-text">Agregá productos al carrito.</p>
+{% else %}
+
+  <div style="margin-top:10px;">
+    {% if not payments %}
+      <p class="grey-text">No hay pagos cargados.</p>
+    {% endif %}
+
+    {% for p in payments %}
+      <div class="card-panel" style="padding:10px; margin-bottom:10px;">
+        <div class="row" style="margin-bottom:0;">
+
+          <form class="col s12 pagos-select"
+                id="pago_form_{{ forloop.counter0 }}"
+                hx-post="{% url 'caja:pagos_set' forloop.counter0 %}"
+                hx-target="#pagos_body"
+                hx-swap="innerHTML">
+            {% csrf_token %}
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="input-field col s12 m4">
+                <select name="tipo"
+                        {% if p.tipo_locked %}disabled{% endif %}
+                        onchange="document.getElementById('pago_form_{{ forloop.counter0 }}').requestSubmit();">
+                  <option value="CONTADO" {% if p.tipo == "CONTADO" %}selected{% endif %}>Contado</option>
+                  <option value="DEBITO" {% if p.tipo == "DEBITO" %}selected{% endif %}>Débito</option>
+                  <option value="CREDITO" {% if p.tipo == "CREDITO" %}selected{% endif %}>Crédito</option>
+                  <option value="TRANSFERENCIA" {% if p.tipo == "TRANSFERENCIA" %}selected{% endif %}>Transferencia</option>
+                  <option value="QR" {% if p.tipo == "QR" %}selected{% endif %}>QR</option>
+                </select>
+                <label>Tipo</label>
+                {% if p.tipo_locked %}
+                  <small class="grey-text">Tipo bloqueado (quitá el pago para cambiarlo)</small>
+                {% endif %}
+              </div>
+
+              <div class="input-field col s12 m4">
+                <input type="number"
+                       name="monto"
+                       step="0.01"
+                       min="0"
+                       value="{{ p.monto }}"
+                       onchange="document.getElementById('pago_form_{{ forloop.counter0 }}').requestSubmit();">
+                <label class="active">Monto</label>
+              </div>
+
+              <div class="col s12 m4" style="display:flex; gap:10px; justify-content:flex-end; align-items:center;">
+                <button class="btn blue" type="submit">Guardar</button>
+              </div>
+            </div>
+
+            {% if p.tipo == "CREDITO" %}
+              <div class="row" style="margin-bottom:0;">
+
+                <div class="input-field col s12 m4">
+                  <select name="tarjeta"
+                          onchange="document.getElementById('pago_form_{{ forloop.counter0 }}').requestSubmit();">
+                    <option value="" disabled {% if not p.tarjeta %}selected{% endif %}>Elegí tarjeta</option>
+                    {% for t in tarjetas %}
+                      <option value="{{ t }}" {% if p.tarjeta == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                  </select>
+                  <label>Tarjeta</label>
+                </div>
+
+                <div class="col s12 m4" id="cuotas_wrap_{{ forloop.counter0 }}">
+                  {% if p.tarjeta %}
+                    <div
+                      hx-get="{% url 'caja:pagos_cuotas' forloop.counter0 %}?tarjeta={{ p.tarjeta|urlencode }}"
+                      hx-trigger="load"
+                      hx-target="#cuotas_wrap_{{ forloop.counter0 }}"
+                      hx-swap="innerHTML">
+                    </div>
+                  {% else %}
+                    <div class="grey-text" style="padding-top:10px;">Elegí tarjeta para ver cuotas</div>
+                  {% endif %}
+                </div>
+
+              </div>
+            {% endif %}
+
+            {% if p.tipo == "TRANSFERENCIA" or p.tipo == "QR" %}
+              <div class="input-field">
+                <input type="text" name="referencia"
+                       value="{{ p.referencia|default:'' }}"
+                       onchange="document.getElementById('pago_form_{{ forloop.counter0 }}').requestSubmit();">
+                <label class="active">Referencia / Operación</label>
+              </div>
+            {% endif %}
+          </form>
+
+          <div class="col s12" style="display:flex; justify-content:flex-end; margin-top:8px;">
+            <form hx-post="{% url 'caja:pagos_del' forloop.counter0 %}"
+                  hx-target="#pagos_body"
+                  hx-swap="innerHTML">
+              {% csrf_token %}
+              <button class="btn red" type="submit">Quitar</button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+{% endif %}
+
+{# ✅ OOB: actualiza los totales del header fijo (SIEMPRE) #}
+<!--
+<div id="pagos_totales" hx-swap-oob="innerHTML">
+  {% include "caja/_pagos_totales.html" %}
+</div>
+-->

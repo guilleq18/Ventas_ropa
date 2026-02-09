@@ -1,0 +1,13 @@
+{# templates/caja/_cuotas_wrap.html #}
+
+{% if p.tarjeta %}
+  <div class="input-field">
+    <select name="plan_id"
+            onchange="document.getElementById('pago_form_{{ idx }}').requestSubmit();">
+      {% include "caja/_cuotas_options.html" with planes=planes selected_plan_id=p.plan_id %}
+    </select>
+    <label class="active">Cuotas</label>
+  </div>
+{% else %}
+  <div class="grey-text" style="padding-top:10px;">Elegí tarjeta para ver cuotas</div>
+{% endif %}

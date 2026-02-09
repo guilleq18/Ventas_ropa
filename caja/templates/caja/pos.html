@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Caja</title>
 
-  <!-- Materialize (Material Design) -->
+  <!-- Materialize -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css">
   <script src="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/js/materialize.min.js"></script>
 
@@ -13,15 +13,74 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
   <style>
+    .pos-card{ display:flex; flex-direction:column; min-height:0; }
+    .pos-card .card-content{ display:flex; flex-direction:column; height:100%; min-height:0; }
+    .pos-card .card-head{ flex:0 0 auto; }
+    .pos-card .card-body{
+      flex:1 1 auto;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+      border-top:1px solid rgba(0,0,0,.08);
+      margin-top:10px;
+      padding-top:10px;
+      min-height:0;
+    }
+    .pos-card .card-body .collection{ margin:0; }
+
+    .card-head.sticky-head{
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #fff;
+      padding-bottom: 8px;
+    }
+
+    .card-head-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .card-head-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    @media (min-width: 601px){
+      .card-search{ height: calc(100vh - 220px); }
+      .card-carrito{ height: calc((100vh - 240px) * 0.45); }
+      .card-pagos{ height: calc((100vh - 240px) * 0.55); }
+    }
+
+    @media (max-width: 600px){
+      .card-search, .card-carrito, .card-pagos{ height:auto; }
+      .card-search .card-body{ max-height: 300px; }
+      .card-carrito .card-body{ max-height: 260px; }
+      .card-pagos .card-body{ max-height: 340px; }
+    }
+
+    .select-wrapper input.select-dropdown{
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    .pagos-select .select-wrapper input.select-dropdown{
+      padding-right: 2.2rem !important;
+      box-sizing:border-box;
+    }
+    .pagos-select .select-wrapper .caret{ right:.5rem; }
+
     .pos-sticky{
       position: sticky;
       bottom: 0;
       z-index: 999;
       border-top: 1px solid rgba(0,0,0,.08);
     }
-    .pos-sticky .card-content{
-      padding: 12px 16px;
-    }
+    .pos-sticky .card-content{ padding: 12px 16px; }
     .pos-sticky .controls{
       display:flex;
       align-items:center;
@@ -44,20 +103,11 @@
       flex-wrap:wrap;
     }
     .touch-btn{ height:48px; line-height:48px; }
-    .chip.sucursal-chip{
-      font-weight:600;
-    }
+    .chip.sucursal-chip{ font-weight:600; }
     @media (max-width: 600px){
-      .pos-sticky .controls{
-        gap:10px;
-      }
-      .pos-sticky .right{
-        width:100%;
-        justify-content:stretch;
-      }
-      .pos-sticky .right .btn-large{
-        width:100%;
-      }
+      .pos-sticky .controls{ gap:10px; }
+      .pos-sticky .right{ width:100%; justify-content:stretch; }
+      .pos-sticky .right .btn-large{ width:100%; }
     }
   </style>
 </head>
@@ -72,79 +122,139 @@
     </div>
   </nav>
 
-  <div class="container" style="margin-top: 18px;">
+  <div class="container" style="margin-top:18px;">
     <div class="row">
 
-      <!-- Col izquierda: búsqueda -->
+      <!-- IZQ: Buscar -->
       <div class="col s12 m6">
-        <div class="card">
+        <div class="card pos-card card-search">
           <div class="card-content">
-            <span class="card-title">Buscar (SKU)</span>
 
-            <div class="input-field">
-              <input id="q" name="q" type="text"
-                     autocomplete="off"
-                     placeholder="Ej: REM-BAS-M-NEG o Remera o 779..."
-                     hx-get="{% url 'caja:buscar' %}"
-                     hx-trigger="keyup changed delay:300ms"
-                     hx-target="#resultados"
-                     hx-swap="innerHTML">
-              <label for="q">SKU / nombre / código de barras</label>
+            <div class="card-head sticky-head">
+              <span class="card-title">Buscar (SKU)</span>
+
+              <div class="input-field" style="margin-bottom:0;">
+                <input id="q" name="q" type="text"
+                       autocomplete="off"
+                       placeholder="Ej: REM-BAS-M-NEG o Remera o 779..."
+                       hx-get="{% url 'caja:buscar' %}"
+                       hx-trigger="keyup changed delay:300ms"
+                       hx-target="#resultados"
+                       hx-swap="innerHTML">
+                <label for="q">SKU / nombre / código de barras</label>
+              </div>
             </div>
 
-            <div id="resultados">
-              {% include "caja/_resultados.html" with results=None %}
+            <div class="card-body" id="buscar_scroll">
+              <div id="resultados">
+                {% include "caja/_resultados.html" with results=None %}
+              </div>
             </div>
+
           </div>
         </div>
       </div>
 
-      <!-- Col derecha: carrito -->
+      <!-- DER: Carrito + Pagos -->
       <div class="col s12 m6">
-        <div class="card">
+
+        <!-- Carrito -->
+        <div class="card pos-card card-carrito">
           <div class="card-content">
-            <span class="card-title">Carrito</span>
-            <div id="carrito">
-              {% include "caja/_carrito.html" with items=cart_items total=cart_total %}
+
+            <div class="card-head sticky-head">
+              <div class="card-head-row">
+                <span class="card-title" style="margin:0;">Carrito</span>
+
+                <div class="card-head-actions">
+                  <span class="grey-text text-darken-2">
+                    Total: <strong id="carrito_total_header">${{ cart_total }}</strong>
+                  </span>
+
+                  <form hx-post="{% url 'caja:carrito_vaciar' %}"
+                        hx-target="#carrito_body"
+                        hx-swap="innerHTML"
+                        style="margin:0;">
+                    {% csrf_token %}
+                    <button class="btn red lighten-1 waves-effect waves-light" type="submit">
+                      Vaciar
+                    </button>
+                  </form>
+                </div>
+              </div>
             </div>
+
+            <div class="card-body" id="carrito_scroll">
+              <div id="carrito_body">
+                {% include "caja/_carrito.html" with items=cart_items total=cart_total %}
+              </div>
+            </div>
+
           </div>
         </div>
+
+        <!-- Pagos -->
+        <div class="card pos-card card-pagos">
+          <div class="card-content">
+
+            <div class="card-head sticky-head">
+              <div class="card-head-row">
+                <span class="card-title" style="margin:0;">Pagos</span>
+
+                <div class="card-head-actions">
+                  <form method="post"
+                        hx-post="{% url 'caja:pagos_add' %}"
+                        hx-target="#pagos_body"
+                        hx-swap="innerHTML"
+                        style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn teal waves-effect waves-light">
+                      Agregar pago
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <div id="pagos_totales" style="margin-top:6px;">
+                {% include "caja/_pagos_totales.html" %}
+              </div>
+            </div>
+
+            <div class="card-body" id="pagos_scroll">
+              <div id="pagos_body">
+                {% include "caja/_pagos_body.html" %}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
       </div>
 
     </div>
 
-    <!-- Barra inferior sticky (móvil friendly) -->
+    <!-- Barra sticky inferior (Confirmación) -->
     <div class="card pos-sticky">
       <div class="card-content">
         <form
           hx-post="{% url 'caja:confirmar' %}"
           hx-target="#confirm_res"
           hx-swap="innerHTML"
+          hx-target-error="#confirm_res"
         >
           {% csrf_token %}
-          <input type="hidden" name="confirm_token" value="{{ confirm_token }}">
+          <input id="confirm_token_input" type="hidden" name="confirm_token" value="{{ confirm_token }}">
 
           <div class="controls">
-            <!-- Izquierda: sucursal fija + medio de pago -->
             <div class="left">
               <span class="grey-text text-darken-1">Sucursal</span>
-              <div class="chip sucursal-chip">
-                {{ sucursal.nombre }}
-              </div>
+              <div class="chip sucursal-chip">{{ sucursal.nombre }}</div>
 
-              <div class="input-field" style="min-width:240px; margin:0;">
-                <select name="medio_pago">
-                  <option value="EFECTIVO" selected>Efectivo</option>
-                  <option value="DEBITO">Débito</option>
-                  <option value="CREDITO">Crédito</option>
-                  <option value="TRANSFERENCIA">Transferencia</option>
-                  <option value="CUENTA_CORRIENTE">Cuenta corriente</option>
-                </select>
-                <label>Medio de pago</label>
-              </div>
+              <span class="grey-text text-darken-1">
+                Total: <strong>${{ cart_total }}</strong>
+              </span>
             </div>
 
-            <!-- Derecha: acción -->
             <div class="right">
               <button class="btn-large waves-effect waves-light green touch-btn" type="submit">
                 Confirmar venta
@@ -160,30 +270,69 @@
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      var elems = document.querySelectorAll('select');
+    function initSelects(root){
+      if (!window.M || !M.FormSelect) return;
+      var elems = (root || document).querySelectorAll('select');
       M.FormSelect.init(elems);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initSelects(document);
     });
 
     document.body.addEventListener('htmx:afterSwap', function(evt) {
-      var elems = document.querySelectorAll('select');
-      M.FormSelect.init(elems);
-    });
-  </script>
+      initSelects(evt.target);
 
-  <script>
+      if (evt.target && evt.target.id === "carrito_body") {
+        const wrap = document.getElementById("carrito_scroll");
+        if (wrap) wrap.scrollTop = 0;
+
+        const q = document.getElementById("q");
+        if (q) q.focus();
+      }
+    });
+    // ✅ re-init también cuando hay OOB (más confiable que afterSettle en algunos casos)
+    document.body.addEventListener('htmx:oobAfterSwap', function () {
+      initSelects(document);
+    });
+    document.body.addEventListener('htmx:oobAfterSettle', function () {
+      initSelects(document);
+    });
+
+    // ✅ clave: después de que HTMX termina TODO (incluye OOB), re-init selects
+    document.body.addEventListener('htmx:afterSettle', function() {
+      initSelects(document);
+    });
+    document.body.addEventListener('htmx:oobAfterSwap', function () {
+      initSelects(document);
+    });
+
+    document.body.addEventListener("htmx:responseError", function (evt) {
+      const target = document.querySelector("#confirm_res");
+      if (!target) return;
+      target.innerHTML = evt.detail.xhr.responseText || "Error al confirmar.";
+    });
+
+    document.body.addEventListener("posToast", function (evt) {
+      if (window.M && M.toast) {
+        M.toast({ html: evt.detail.message });
+      } else {
+        alert(evt.detail.message);
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
       const input = document.getElementById("q");
+      if (!input) return;
 
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
-
           const q = input.value.trim();
           if (!q) return;
 
           htmx.ajax("POST", "{% url 'caja:scan_add' %}", {
-            target: "#carrito",
+            target: "#carrito_body",
             swap: "innerHTML",
             values: { q },
             headers: { "X-CSRFToken": "{{ csrf_token }}" }
@@ -194,16 +343,6 @@
       });
     });
   </script>
-  <script>
-  // Toast de Materialize desde eventos HTMX (HX-Trigger)
-  document.body.addEventListener("posToast", function (evt) {
-    if (window.M && M.toast) {
-      M.toast({ html: evt.detail.message });
-    } else {
-      alert(evt.detail.message);
-    }
-  });
-</script>
 
 </body>
 </html>

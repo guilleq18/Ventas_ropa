@@ -1,0 +1,14 @@
+{# caja/_cuotas_options.html #}
+<div class="input-field pagos-select">
+  <select name="plan_id"
+          onchange="document.getElementById('pago_form_{{ idx }}').requestSubmit();">
+    <option value="" disabled {% if not selected_plan_id %}selected{% endif %}>Elegí cuotas</option>
+
+    {% for pl in planes %}
+      <option value="{{ pl.id }}" {% if selected_plan_id == pl.id|stringformat:"s" %}selected{% endif %}>
+        {{ pl.cuotas }} cuotas ({{ pl.recargo_pct }}%)
+      </option>
+    {% endfor %}
+  </select>
+  <label>Cuotas</label>
+</div>
