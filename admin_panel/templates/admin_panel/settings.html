@@ -1,0 +1,29 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Configuración{% endblock %}
+{% block header_title %}Configuración{% endblock %}
+
+{% block content %}
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Ventas</span>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <p>
+          <label>
+            <input type="checkbox" name="permitir_sin_stock" {% if permitir_sin_stock %}checked{% endif %}/>
+            <span>Permitir vender sin stock</span>
+          </label>
+        </p>
+        <p class="grey-text" style="margin-top:6px;">{{ setting_desc }}</p>
+
+        <div style="margin-top:16px;">
+          <button class="btn" type="submit">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endblock %}

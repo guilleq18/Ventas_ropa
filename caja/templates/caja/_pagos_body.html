@@ -1,4 +1,6 @@
 {# templates/caja/_pagos_body.html #}
+{% load caja_extras %}
+
 
 {% if total_base <= 0 %}
   <p class="grey-text">Agregá productos al carrito.</p>
@@ -42,7 +44,7 @@
                        name="monto"
                        step="0.01"
                        min="0"
-                       value="{{ p.monto }}"
+                       value="{{ p.monto|num_ar }}"
                        onchange="document.getElementById('pago_form_{{ forloop.counter0 }}').requestSubmit();">
                 <label class="active">Monto</label>
               </div>
@@ -114,6 +116,6 @@
     {% include "caja/_pagos_totales.html" %}
   </div>
 
-  <div hx-swap-oob="innerHTML:#total_cobrar_card" style="display:none">{{ total_cobrar }}</div>
-  <div hx-swap-oob="innerHTML:#total_cobrar_confirm" style="display:none">{{ total_cobrar }}</div>
+  <div hx-swap-oob="innerHTML:#total_cobrar_card" style="display:none">{{ total_cobrar|num_ar }}</div>
+  <div hx-swap-oob="innerHTML:#total_cobrar_confirm" style="display:none">{{ total_cobrar|num_ar }}</div>
 {% endif %}

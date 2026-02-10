@@ -1,0 +1,144 @@
+{% extends "admin_panel/base.html" %}
+{% load core_extras %}
+{% block title %}Balances{% endblock %}
+{% block header_title %}Balances y gráficos{% endblock %}
+
+{% block content %}
+
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Filtro</span>
+
+      <form method="get">
+        <div class="row" style="margin-bottom:0;">
+          <div class="input-field col s12 m4">
+            <input type="date" name="from" value="{{ from }}">
+            <label class="active">Desde</label>
+          </div>
+          <div class="input-field col s12 m4">
+            <input type="date" name="to" value="{{ to }}">
+            <label class="active">Hasta</label>
+          </div>
+          <div class="input-field col s12 m4" style="margin-top:22px;">
+            <button class="btn" type="submit">
+              <i class="material-icons left">search</i>Aplicar
+            </button>
+            <a class="btn-flat" href="{% url 'admin_panel:balances' %}">Hoy</a>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col s12 m4">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Total</span>
+          <div style="font-size:1.6rem; font-weight:700;">
+            {{ total|moneda_ar }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col s12 m4">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Ventas</span>
+          <div style="font-size:1.6rem; font-weight:700;">
+            {{ cantidad }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col s12 m4">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Ticket promedio</span>
+          <div style="font-size:1.6rem; font-weight:700;">
+            {{ ticket_prom|moneda_ar }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col s12 l8">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Ventas por día</span>
+          <canvas id="chartDia" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col s12 l4">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Por medio de pago</span>
+          <canvas id="chartMedio" height="200"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col s12">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Por sucursal</span>
+          <canvas id="chartSucursal" height="90"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script>
+    const labelsDia = {{labels_dia_json|safe}};
+    const dataTotalDia = {{data_total_dia_json|safe}};
+
+    const labelsMedio = {{ labels_medio_json|safe }};
+    const dataMedio = {{ data_medio_json|safe}};
+
+    const labelsSucursal = {{ labels_sucursal_json|safe}};
+    const dataSucursal = {{ data_sucursal_json|safe}};
+
+    new Chart(document.getElementById('chartDia'), {
+      type: 'line',
+      data: {
+        labels: labelsDia,
+        datasets: [{ label: 'Total', data: dataTotalDia }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    new Chart(document.getElementById('chartMedio'), {
+      type: 'doughnut',
+      data: {
+        labels: labelsMedio,
+        datasets: [{ data: dataMedio }]
+      },
+      options: { responsive: true }
+    });
+
+    new Chart(document.getElementById('chartSucursal'), {
+      type: 'bar',
+      data: {
+        labels: labelsSucursal,
+        datasets: [{ label: 'Total', data: dataSucursal }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } }
+      }
+    });
+  </script>
+
+{% endblock %}

@@ -24,7 +24,7 @@
           </div>
 
           <div style="text-align:right; min-width:120px;">
-            <div style="font-weight:700;">${{ v.precio }}</div>
+            <div style="font-weight:700;">${{ v.precio|num_ar }}</div>
 
             <form hx-post="{% url 'caja:carrito_agregar' v.id %}"
                   hx-target="#carrito_body"

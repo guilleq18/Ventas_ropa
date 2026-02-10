@@ -1,0 +1,133 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Ventas{% endblock %}
+{% block header_title %}Ventas realizadas{% endblock %}
+{% load core_extras %}
+
+
+
+{% block content %}
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Filtros</span>
+
+      <form method="get">
+        <div class="row" style="margin-bottom:0;">
+          <div class="input-field col s12 m3">
+            <input type="date" name="from" value="{{ from }}">
+            <label class="active">Desde</label>
+          </div>
+
+          <div class="input-field col s12 m3">
+            <input type="date" name="to" value="{{ to }}">
+            <label class="active">Hasta</label>
+          </div>
+
+          <div class="input-field col s12 m3">
+            <input type="text" name="sucursal" value="{{ sucursal }}">
+            <label class="active">Sucursal (ID)</label>
+          </div>
+
+          <div class="input-field col s12 m3">
+            <select name="estado">
+              <option value="" {% if not estado %}selected{% endif %}>Todos</option>
+              {% for v, label in estados %}
+                <option value="{{ v }}" {% if estado == v %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <label>Estado</label>
+          </div>
+
+          <div class="input-field col s12">
+            <input type="text" name="q" value="{{ q }}">
+            <label class="active">Buscar (ID / sucursal)</label>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn" type="submit">
+            <i class="material-icons left">search</i>Aplicar
+          </button>
+          <a class="btn-flat" href="{% url 'admin_panel:ventas_lista' %}">Limpiar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Resultados</span>
+
+      <div class="responsive-table">
+        <table class="striped">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Fecha</th>
+              <th>Sucursal</th>
+              <th>Estado</th>
+              <th>Medio</th>
+              <th class="right-align">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for v in page_obj.object_list %}
+              <tr>
+                <td>#{{ v.id }}</td>
+                <td>{{ v.fecha|date:"d/m/Y"}}</td>
+                <td>{{ v.sucursal.nombre }}</td>
+                <td>{{ v.get_estado_display }}</td>
+                <td>{{ v.get_medio_pago_display }}</td>
+                <td class="right-align">{{ v.total|moneda_ar }}</td>
+                <td class="right-align">
+                  <a class="btn-small" href="{% url 'admin_panel:ventas_detalle' v.id %}">Ver</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="grey-text">Sin resultados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page_obj.paginator.num_pages > 1 %}
+        <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+          <div class="grey-text">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+          </div>
+
+          <ul class="pagination" style="margin:0;">
+            {% if page_obj.has_previous %}
+              <li class="waves-effect">
+                <a href="?page={{ page_obj.previous_page_number }}&from={{ from }}&to={{ to }}&sucursal={{ sucursal }}&estado={{ estado }}&q={{ q }}">
+                  <i class="material-icons">chevron_left</i>
+                </a>
+              </li>
+            {% else %}
+              <li class="disabled"><a href="#!"><i class="material-icons">chevron_left</i></a></li>
+            {% endif %}
+
+            <li class="active"><a href="#!">{{ page_obj.number }}</a></li>
+
+            {% if page_obj.has_next %}
+              <li class="waves-effect">
+                <a href="?page={{ page_obj.next_page_number }}&from={{ from }}&to={{ to }}&sucursal={{ sucursal }}&estado={{ estado }}&q={{ q }}">
+                  <i class="material-icons">chevron_right</i>
+                </a>
+              </li>
+            {% else %}
+              <li class="disabled"><a href="#!"><i class="material-icons">chevron_right</i></a></li>
+            {% endif %}
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var elems = document.querySelectorAll('select');
+      M.FormSelect.init(elems);
+    });
+  </script>
+{% endblock %}

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Admin{% endblock %}</title>
+
+  <!-- Materialize -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/js/materialize.min.js"></script>
+
+  <style>
+    body{ background:#f3f4f6; }
+    main{ padding:16px; }
+
+    /* Sidebar desktop */
+    .sidenav.sidenav-fixed{
+      width: 260px;
+    }
+    header, main, footer{
+      padding-left: 260px;
+    }
+    @media only screen and (max-width : 992px) {
+      header, main, footer{
+        padding-left: 0;
+      }
+    }
+
+    .brand{
+      padding:16px 20px;
+      font-weight:700;
+      font-size:1.1rem;
+    }
+    .menu-section{
+      padding: 8px 20px;
+      font-size: .85rem;
+      color:#777;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Topbar -->
+  <header>
+    <nav class="white">
+      <div class="nav-wrapper" style="padding:0 12px;">
+        <a href="#" data-target="admin-sidenav" class="sidenav-trigger grey-text text-darken-3">
+          <i class="material-icons">menu</i>
+        </a>
+
+        <span class="grey-text text-darken-3" style="font-weight:600;">
+          {% block header_title %}Panel de administración{% endblock %}
+        </span>
+
+        <ul class="right">
+          <li class="grey-text text-darken-2" style="padding-right:10px;">
+            {{ request.user.get_username }}
+          </li>
+          <li>
+            <a class="grey-text text-darken-3" href="{% url 'logout' %}">
+              Salir
+            </a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+  </header>
+
+  <!-- Sidebar -->
+  <ul id="admin-sidenav" class="sidenav sidenav-fixed">
+    <div class="brand">Sistema de Ventas</div>
+
+    <div class="menu-section">Principal</div>
+    <li>
+      <a href="{% url 'admin_panel:dashboard' %}">
+        <i class="material-icons">dashboard</i>Dashboard
+      </a>
+    </li>
+
+    <div class="menu-section">Gestión</div>
+
+    {# Catálogo (wrapper o link directo) #}
+    <li>
+      <a href="{% url 'admin_panel:catalogo_home' %}">
+        <i class="material-icons">inventory_2</i>Catálogo
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'admin_panel:ventas_lista' %}">
+        <i class="material-icons">receipt_long</i>Ventas
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'admin_panel:usuarios_lista' %}">
+        <i class="material-icons">people</i>Usuarios
+      </a>
+    </li>
+    <li>
+      <a href="{% url 'admin_panel:settings' %}">
+        <i class="material-icons">settings</i>Configuración
+  </a>
+</li>
+<li>
+  <a href="{% url 'admin_panel:balances' %}">
+    <i class="material-icons">insights</i>Balances
+  </a>
+</li>
+  </ul>
+  
+
+  <main>
+    {% if messages %}
+      {% for message in messages %}
+        <div class="card-panel {% if message.tags %}{{ message.tags }}{% endif %}">
+          {{ message }}
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const sidenavs = document.querySelectorAll('.sidenav');
+      M.Sidenav.init(sidenavs, {});
+    });
+  </script>
+
+  <!-- Material Icons -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</body>
+</html>

@@ -1,7 +1,7 @@
 # caja/views.py
 # Comentarios en español como pediste.
 
-from decimal import Decimal
+
 import uuid
 import json
 
@@ -18,11 +18,40 @@ from catalogo.models import Variante, StockSucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from ventas.services import confirmar_venta
 from django.db import transaction
+from decimal import Decimal, InvalidOperation
+
+
+
 
 
 # =========================
 # Helpers: Pagos (session)
 # =========================
+
+def _parse_decimal_ar(raw) -> Decimal:
+    s = (raw or "").strip()
+    if not s:
+        return Decimal("0.00")
+
+    s = s.replace("$", "").replace(" ", "")
+
+    # Caso típico AR: 23.648,00  -> 23648.00
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+
+    # limpiar caracteres raros
+    allowed = set("0123456789.-")
+    s = "".join(ch for ch in s if ch in allowed)
+
+    if s in ("", "-", ".", "-."):
+        return Decimal("0.00")
+
+    try:
+        return Decimal(s).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return Decimal("0.00")
 
 def _payments_get(request) -> list:
     return request.session.get("pos_payments", [])
@@ -469,13 +498,16 @@ def pagos_del(request, idx: int):
 @require_POST
 def pagos_set(request, idx: int):
     payments = _payments_get(request)
+    
     if not (0 <= idx < len(payments)):
         return _render_pagos(request)
 
     p = payments[idx]
 
     if request.POST.get("monto") is not None:
-        p["monto"] = request.POST.get("monto") or p.get("monto", "0.00")
+        m = _parse_decimal_ar(request.POST.get("monto"))
+        p["monto"] = str(m)  # se guarda normalizado con punto para cálculos internos
+
 
     if request.POST.get("tipo") is not None:
         p["tipo"] = (request.POST.get("tipo") or p.get("tipo", "CONTADO")).strip()
@@ -572,6 +604,58 @@ def pos(request):
         .order_by("tarjeta")
     )
 
+    # ✅ Venta recién confirmada (para mostrar modal una sola vez)
+    last_sale = None
+    last_sale_total_items = Decimal("0.00")
+    last_sale_total_recargos = Decimal("0.00")
+    last_sale_total_final = Decimal("0.00")
+    last_sale_pagos = []
+
+    last_sale_id = request.session.pop("pos_last_sale_id", None)
+    if last_sale_id:
+        try:
+            last_sale = (
+                Venta.objects
+                .select_related("sucursal")
+                .prefetch_related("items__variante__producto", "pagos__plan")
+                .get(id=int(last_sale_id))
+            )
+
+            # Total por items (base, sin recargos)
+            last_sale_total_items = sum(
+                (it.subtotal or Decimal("0.00")) for it in last_sale.items.all()
+            ).quantize(Decimal("0.01"))
+
+            # Lista de pagos (evaluada)
+            last_sale_pagos = list(last_sale.pagos.select_related("plan").all())
+
+            # Recargos total + recargo por pago
+            rec = Decimal("0.00")
+            for p in last_sale_pagos:
+                if p.tipo == "CREDITO":
+                    rm = p.recargo_monto or Decimal("0.00")
+                    p.recargo_calc = Decimal(rm).quantize(Decimal("0.01"))
+                else:
+                    p.recargo_calc = Decimal("0.00")
+                rec += p.recargo_calc
+
+            last_sale_total_recargos = rec.quantize(Decimal("0.01"))
+
+            # Total final (base + recargos)
+            last_sale_total_final = (last_sale_total_items + last_sale_total_recargos).quantize(Decimal("0.01"))
+
+            # Alternativa: usar el total guardado en venta (siempre que ya incluya recargos)
+            # last_sale_total_final = (last_sale.total or Decimal("0.00")).quantize(Decimal("0.01"))
+
+        except (Venta.DoesNotExist, ValueError, TypeError):
+            last_sale = None
+            last_sale_total_items = Decimal("0.00")
+            last_sale_total_recargos = Decimal("0.00")
+            last_sale_total_final = Decimal("0.00")
+            last_sale_pagos = []
+
+    request.session.modified = True
+
     return render(request, "caja/pos.html", {
         "sucursal": sucursal,
         "confirm_token": token,
@@ -585,7 +669,14 @@ def pos(request):
         "pagado": pay_ctx["pagado"],
         "saldo": pay_ctx["saldo"],
         "tarjetas": tarjetas,
+
+        # ✅ modal
+        "last_sale": last_sale,
+        "last_sale_total_items": last_sale_total_items,
+        "last_sale_pagos": last_sale_pagos,
+        "last_sale_total_final": last_sale_total_final,
     })
+
 
 
 # =========================
@@ -837,14 +928,12 @@ def confirmar(request):
 
         referencia = (p.get("referencia") or "").strip()
 
-        # Validaciones crédito
         if tipo == "CREDITO":
             if cuotas < 1:
                 return HttpResponse("Cuotas inválidas en pago con crédito.", status=400)
             if recargo_pct < 0:
                 return HttpResponse("Recargo % inválido en crédito.", status=400)
 
-        # Cálculos
         recargo_monto = (monto * recargo_pct / Decimal("100")).quantize(Decimal("0.01"))
         coeficiente = (Decimal("1.00") + (recargo_pct / Decimal("100"))).quantize(Decimal("0.0001"))
 
@@ -875,7 +964,6 @@ def confirmar(request):
     suma_montos_base = suma_montos_base.quantize(Decimal("0.01"))
     suma_recargos = suma_recargos.quantize(Decimal("0.01"))
 
-    # ✅ Regla correcta:
     # 1) Los montos base deben cubrir el total del carrito
     if suma_montos_base != total_base:
         return HttpResponse(
@@ -884,7 +972,7 @@ def confirmar(request):
         )
 
     total_cobrar = (total_base + suma_recargos).quantize(Decimal("0.01"))
-    total_pagado = _payments_total(pagos_limpios).quantize(Decimal("0.01"))  # incluye recargos
+    total_pagado = _payments_total(pagos_limpios).quantize(Decimal("0.01"))
 
     if total_pagado != total_cobrar:
         return HttpResponse(
@@ -897,11 +985,10 @@ def confirmar(request):
             venta = Venta.objects.create(
                 sucursal=sucursal,
                 estado=Venta.Estado.BORRADOR,
-                medio_pago=Venta.MedioPago.EFECTIVO,  # compat
-                total=total_cobrar,                   # ✅ total final (incluye recargos)
+                medio_pago=Venta.MedioPago.EFECTIVO,
+                total=total_cobrar,
             )
 
-            # Items
             for vid_str, item in cart.items():
                 v = get_object_or_404(Variante, id=int(vid_str), activo=True)
                 qty = int(item["qty"])
@@ -913,7 +1000,6 @@ def confirmar(request):
                     precio_unitario=precio,
                 )
 
-            # Pagos
             for p in pagos_limpios:
                 plan_obj = None
                 if p.get("plan_id"):
@@ -942,9 +1028,15 @@ def confirmar(request):
                 )
 
             confirmar_venta(venta)
+            # ✅ Por si confirmar_venta() recalcula y pisa el total:
+        venta.total = total_cobrar
+        venta.save(update_fields=["total"])
 
     except ValidationError as e:
         return HttpResponse(str(e), status=400)
+
+    # ✅ Guardar venta para mostrar modal en la próxima carga de /caja/
+    request.session["pos_last_sale_id"] = venta.id
 
     # ✅ Reset total POS (carrito + pagos + token)
     _cart_save(request, {})
@@ -952,7 +1044,6 @@ def confirmar(request):
     request.session["pos_confirm_token"] = str(uuid.uuid4())
     request.session.modified = True
 
-    # ✅ Esto resetea también búsqueda, resultados, selects/labels, etc.
     resp = HttpResponse("")
     resp["HX-Redirect"] = "/caja/"
     return resp
@@ -962,7 +1053,51 @@ def confirmar(request):
 @login_required
 def ticket(request, venta_id: int):
     venta = get_object_or_404(
-        Venta.objects.select_related("sucursal").prefetch_related("items__variante__producto"),
+        Venta.objects
+        .select_related("sucursal")
+        .prefetch_related(
+            "items__variante__producto",
+            "items__variante__atributos__atributo",
+            "items__variante__atributos__valor",
+            "pagos__plan",
+        ),
         id=venta_id
     )
-    return render(request, "caja/ticket.html", {"venta": venta})
+
+    def build_nombre_cliente(variante):
+        base = (variante.producto.nombre or "").strip()
+
+        color = ""
+        talle = ""
+
+        for va in variante.atributos.all():
+            nom = (va.atributo.nombre or "").strip().lower()
+            val = (va.valor.valor or "").strip()
+            if not val:
+                continue
+
+            if nom == "color":
+                color = val
+            elif nom in ("talle", "tamaño", "tamanio", "size"):
+                talle = val
+
+        partes = [p for p in (base, color, talle) if p]
+        return " - ".join(partes) if partes else (variante.sku or base or "Item")
+
+    # 🔥 pegamos el nombre “cliente” directo en cada item (lo más confiable)
+    for it in venta.items.all():
+        it.nombre_cliente = build_nombre_cliente(it.variante)
+
+    total_items = sum((it.subtotal or Decimal("0.00")) for it in venta.items.all()).quantize(Decimal("0.01"))
+    total_recargos = sum((p.recargo_monto or Decimal("0.00")) for p in venta.pagos.all()).quantize(Decimal("0.01"))
+    total_final = (venta.total or Decimal("0.00")).quantize(Decimal("0.01"))
+
+    auto_print = (request.GET.get("print") == "1")
+
+    return render(request, "caja/ticket.html", {
+        "venta": venta,
+        "total_items": total_items,
+        "total_recargos": total_recargos,
+        "total_final": total_final,
+        "auto_print": auto_print,
+    })

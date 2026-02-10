@@ -20,6 +20,8 @@ urlpatterns = [
 
     path("confirmar/", views.confirmar, name="confirmar"),
     path("pagos/cuotas/<int:idx>/", views.pagos_cuotas, name="pagos_cuotas"),
+    path("", views.pos, name="pos"),
+    path("ticket/<int:venta_id>/", views.ticket, name="ticket"),
 
 
 ]

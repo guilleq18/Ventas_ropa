@@ -63,7 +63,7 @@
           </td>
 
           <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">
-            <strong>${{ it.subtotal }}</strong>
+            <strong>${{ it.subtotal|num_ar }}</strong>
           </td>
 
           <td class="right-align" style="padding-top:10px; padding-bottom:10px;">
@@ -99,5 +99,5 @@
 </div>
 
 {# Totales visibles (card carrito + barra confirmar) #}
-<div hx-swap-oob="innerHTML:#total_cobrar_card" style="display:none">{{ total_cobrar }}</div>
-<div hx-swap-oob="innerHTML:#total_cobrar_confirm" style="display:none">{{ total_cobrar }}</div>
+<div hx-swap-oob="innerHTML:#total_cobrar_card" style="display:none">{{ total_cobrar|num_ar }}</div>
+<div hx-swap-oob="innerHTML:#total_cobrar_confirm" style="display:none">{{ total_cobrar|num_ar }}</div>

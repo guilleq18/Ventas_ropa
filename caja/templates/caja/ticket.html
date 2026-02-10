@@ -1,0 +1,330 @@
+{% load caja_extras %}
+
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ticket Venta #{{ venta.id }}</title>
+
+  <style>
+    :root{
+      --text:#111;
+      --muted:#666;
+      --line:#d9d9d9;
+    }
+
+    body{
+      margin:0;
+      background:#f3f4f6;
+      color:var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    .page{
+      padding:18px;
+      display:flex;
+      justify-content:center;
+    }
+
+    /* Ticket “receipt” */
+    .receipt{
+      width: 420px;
+      max-width: 95vw;
+      background:#fff;
+      border:1px solid #e6e6e6;
+      border-radius:12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.08);
+      overflow:hidden;
+    }
+
+    .pad{ padding:14px 14px; }
+
+    .center{ text-align:center; }
+    .right{ text-align:right; }
+    .muted{ color:var(--muted); }
+    .small{ font-size:12px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+
+    .title{
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:.2px;
+    }
+
+    .subtitle{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .divider{
+      border-top:1px dashed var(--line);
+      margin:10px 0;
+    }
+
+    .section-title{
+      margin:8px 0 6px;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.6px;
+      text-transform:uppercase;
+      color:#222;
+    }
+
+    /* Items */
+    .item{
+      display:flex;
+      gap:10px;
+      padding:8px 0;
+      border-bottom:1px solid #f0f0f0;
+    }
+    .item:last-child{ border-bottom:none; }
+
+    .item .leftcol{
+      flex:1 1 auto;
+      min-width:0;
+    }
+    .item .sku{
+      font-weight:600;
+      font-size:10px;
+      line-height:1;
+      word-break:break-word;
+    }
+    .item .name{
+      font-size:10px;
+      color:var(--muted);
+      line-height:1.15;
+      margin-top:2px;
+      word-break:break-word;
+    }
+
+    .item .rightcol{
+      flex:0 0 150px;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:2px;
+      white-space:nowrap;
+    }
+    .pill{
+      display:inline-block;
+      padding:2px 8px;
+      border:1px solid #e8e8e8;
+      border-radius:999px;
+      font-size:12px;
+      color:#111;
+      background:#fafafa;
+    }
+
+    .kv{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      font-size:13px;
+      padding:4px 0;
+    }
+    .kv strong{ font-weight:800; }
+
+    .total-box{
+      border:1px solid #ededed;
+      border-radius:10px;
+      padding:10px 10px;
+      background:#fbfbfb;
+      margin-top:8px;
+    }
+    .grand{
+      font-size:18px;
+      font-weight:900;
+      letter-spacing:.2px;
+    }
+
+    /* Pagos */
+    .pay{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:8px 0;
+      border-bottom:1px solid #f0f0f0;
+    }
+    .pay:last-child{ border-bottom:none; }
+
+    .pay .ptype{
+      font-weight:800;
+      font-size:13px;
+      line-height:1.15;
+    }
+    .pay .pmeta{
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.15;
+      margin-top:2px;
+    }
+
+    .footer-note{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:10px;
+    }
+
+    .btns{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      padding:12px 14px;
+      background:#fafafa;
+      border-top:1px solid #eee;
+    }
+    .btn{
+      border:1px solid #3a3a3a;
+      background:#fff;
+      padding:8px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-size:13px;
+      font-weight:700;
+    }
+    .btn.primary{
+      background:#111;
+      color:#fff;
+      border-color:#111;
+    }
+
+    /* PRINT */
+    @media print{
+      body{ background:#fff; }
+      .page{ padding:0; }
+      .receipt{
+        width: 80mm;           /* ticket térmico */
+        max-width: 80mm;
+        border:none;
+        border-radius:0;
+        box-shadow:none;
+      }
+      .btns{ display:none !important; }
+      .pad{ padding:10px 8px; }
+      .item .rightcol{ flex-basis: 135px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <div class="receipt">
+
+      <!-- Header -->
+      <div class="pad center">
+        <div class="title">TICKET</div>
+        <div class="subtitle">
+          <span class="mono">Venta #{{ venta.id }}</span>
+          · {{ venta.sucursal.nombre }}
+        </div>
+        <div class="subtitle">{{ venta.fecha|date:"d/m/Y H:i" }}</div>
+
+        <div class="divider"></div>
+
+        <div class="kv small">
+          <span class="muted">Sucursal</span>
+          <strong>{{ venta.sucursal.nombre }}</strong>
+        </div>
+        <div class="kv small">
+          <span class="muted">Fecha</span>
+          <strong class="mono">{{ venta.fecha|date:"d/m/Y H:i" }}</strong>
+        </div>
+
+        <div class="divider"></div>
+      </div>
+
+      <!-- Items -->
+      <div class="pad" style="padding-top:0;">
+        <div class="section-title">Items</div>
+            {% load caja_extras %}
+        {% for it in venta.items.all %}
+            <div class="item">
+                <div class="leftcol">
+                <div class="Producto">{{ it.nombre_cliente }}</div>
+                <!--<div class="name">SKU: {{ it.variante.sku }}</div>-->
+                </div>
+
+                <div class="rightcol">
+                <div class="pill mono">x{{ it.cantidad }}</div>
+                <div class="small muted mono">Unit: ${{ it.precio_unitario|num_ar }}</div>
+                <div class="mono" style="font-weight:900;">${{ it.subtotal|num_ar }}</div>
+                </div>
+            </div>
+            {% endfor %}
+
+        <div class="total-box">
+          <div class="kv">
+            <span class="muted">Total por items</span>
+            <strong class="mono">${{ total_items|num_ar }}</strong>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Pagos -->
+        <div class="section-title">Pagos</div>
+
+        {% for p in venta.pagos.all %}
+          <div class="pay">
+            <div>
+              <div class="ptype">{{ p.get_tipo_display }}</div>
+
+              {% if p.tipo == "CREDITO" %}
+                <div class="pmeta">
+                  {% if p.plan %}{{ p.plan.tarjeta }} · {% endif %}
+                  {{ p.cuotas }} cuotas
+                  {% if p.recargo_pct|add:0 > 0 %} · Recargo {{ p.recargo_pct|num_ar }}%{% endif %}
+                </div>
+                {% if p.recargo_monto|add:0 > 0 %}
+                  <div class="pmeta">Recargo: ${{ p.recargo_monto|num_ar }}</div>
+                {% endif %}
+              {% endif %}
+
+              {% if p.referencia %}
+                <div class="pmeta">Ref: {{ p.referencia|num_ar }}</div>
+              {% endif %}
+            </div>
+
+            <div class="right mono" style="font-weight:900; white-space:nowrap;">
+              ${{ p.monto }}
+            </div>
+          </div>
+        {% empty %}
+          <div class="small muted">No hay pagos registrados.</div>
+        {% endfor %}
+
+        <div class="total-box">
+          <div class="kv">
+            <span class="muted">Total recargos</span>
+            <strong class="mono">${{ total_recargos|num_ar }}</strong>
+          </div>
+          <div class="kv" style="margin-top:2px;">
+            <span style="font-weight:900;">TOTAL VENTA</span>
+            <span class="grand mono">${{ total_final|num_ar }}</span>
+          </div>
+        </div>
+
+        <div class="footer-note center">
+          Gracias por su compra
+        </div>
+      </div>
+
+      <!-- Botones -->
+      <div class="btns">
+        <button class="btn" onclick="window.close()">Cerrar</button>
+        <button class="btn primary" onclick="window.print()">Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  {% if auto_print %}
+  <script>
+    window.addEventListener("load", function(){
+      window.print();
+    });
+  </script>
+  {% endif %}
+</body>
+</html>

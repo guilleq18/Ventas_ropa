@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "catalogo",
     "ventas",
     "caja",
+    "admin_panel",
 
 ]
 LOGIN_URL = "/admin/login/"

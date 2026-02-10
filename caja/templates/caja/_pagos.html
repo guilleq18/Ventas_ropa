@@ -1,17 +1,7 @@
 {# caja/_pagos.html #}
-<!--
-{% if total_base <= 0 %}
-  <p class="grey-text">Agregá productos al carrito.</p>
-{% else %}
+{% load caja_extras %}
 
-  <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-    <div><strong>Total base:</strong> ${{ total_base }}</div>
-    <div><strong>Recargos:</strong> ${{ recargos }}</div>
-    <div><strong>Total a cobrar:</strong> ${{ total_cobrar }}</div>
-    <div><strong>Pagado:</strong> ${{ pagado }}</div>
-    <div><strong>Saldo:</strong> ${{ saldo }}</div>
-  </div>
--->
+
   <div style="margin-top:10px;">
     {% if not payments %}
       <p class="grey-text">No hay pagos cargados.</p>
@@ -89,9 +79,9 @@
 
                 <div class="col s12 m4" style="display:flex; align-items:center;">
                   <span class="grey-text text-darken-2">
-                    Recargo: <strong>${{ p.recargo_monto_calc }}</strong><br>
-                    Total tarjeta: <strong>${{ p.total_tarjeta_calc }}</strong><br>
-                    Cuota est.: <strong>${{ p.cuota_calc }}</strong>
+                    Recargo: <strong>${{ p.recargo_monto_calc|num_ar }}</strong><br>
+                    Total tarjeta: <strong>${{ p.total_tarjeta_calc|num_ar }}</strong><br>
+                    Cuota est.: <strong>${{ p.cuota_calc|num_ar }}</strong>
                   </span>
                 </div>
 
