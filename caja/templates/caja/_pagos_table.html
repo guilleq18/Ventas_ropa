@@ -1,0 +1,63 @@
+{# templates/caja/_pagos_table.html #}
+{% load caja_extras %}
+
+{% if not payments %}
+  <p class="grey-text" style="margin:0;">No hay formas de pago cargadas.</p>
+{% else %}
+  <table class="striped" style="font-size:13px;">
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Detalle</th>
+        <th class="right-align">Monto</th>
+        <th class="right-align">Recargo</th>
+        <th class="right-align">Total</th>
+        <th style="width:1%;"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in payments %}
+        <tr>
+          <td><strong>{{ p.get_tipo_display|default:p.tipo }}</strong></td>
+
+          <td class="grey-text text-darken-2">
+            {% if p.tipo == "CREDITO" %}
+              {% if p.tarjeta %}{{ p.tarjeta }} · {% endif %}
+              {{ p.cuotas }} cuotas
+              {% if p.recargo_pct|add:0 > 0 %} · {{ p.recargo_pct|num_ar }}%{% endif %}
+            {% else %}
+              {% if p.referencia %}Ref: {{ p.referencia }}{% else %}—{% endif %}
+            {% endif %}
+          </td>
+
+          <td class="right-align">${{ p.monto|num_ar }}</td>
+
+          <td class="right-align">
+            {% if p.tipo == "CREDITO" %}
+              +${{ p.recargo_monto_calc|num_ar }}
+            {% else %}
+              $0,00
+            {% endif %}
+          </td>
+
+          <td class="right-align">
+            {% if p.tipo == "CREDITO" %}
+              <strong>${{ p.total_tarjeta_calc|num_ar }}</strong>
+            {% else %}
+              <strong>${{ p.monto|num_ar }}</strong>
+            {% endif %}
+          </td>
+
+          <td class="right-align">
+            <form hx-post="{% url 'caja:pagos_del_table' forloop.counter0 %}"
+                  hx-swap="none"
+                  style="margin:0;">
+              {% csrf_token %}
+              <button class="btn red btn-small" type="submit">Quitar</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endif %}

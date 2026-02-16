@@ -1,0 +1,141 @@
+{% extends "admin_panel/base.html" %}
+{% load core_extras %}
+{% block title %}Cuentas corrientes{% endblock %}
+{% block header_title %}Cuentas corrientes{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+  <a class="btn modal-trigger" href="#modalNuevaCC">
+    <i class="material-icons left">add</i>Nueva cuenta corriente
+  </a>
+</div>
+
+<!-- Modal Nueva CC -->
+<div id="modalNuevaCC" class="modal">
+  <div class="modal-content">
+    <h5>Nueva cuenta corriente</h5>
+
+    <form method="post" action="{% url 'admin_panel:cc_crear' %}">
+      {% csrf_token %}
+
+      <div class="row" style="margin-bottom:0;">
+        <div class="input-field col s12 m4">
+          <input type="text" name="dni" required>
+          <label>DNI</label>
+        </div>
+
+        <div class="input-field col s12 m4">
+          <input type="text" name="apellido" required>
+          <label>Apellido</label>
+        </div>
+
+        <div class="input-field col s12 m4">
+          <input type="text" name="nombre" required>
+          <label>Nombre</label>
+        </div>
+
+        <div class="input-field col s12 m6">
+          <input type="text" name="telefono">
+          <label>Teléfono</label>
+        </div>
+
+        <div class="input-field col s12 m6">
+          <input type="date" name="fecha_nacimiento">
+          <label class="active">Fecha de nacimiento</label>
+        </div>
+
+        <div class="input-field col s12">
+          <input type="text" name="direccion">
+          <label>Dirección</label>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; justify-content:flex-end;">
+        <a class="btn-flat modal-close">Cancelar</a>
+        <button class="btn" type="submit">
+          <i class="material-icons left">save</i>Crear
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Filtros</span>
+
+      <form method="get">
+        <div class="row" style="margin-bottom:0;">
+          <div class="input-field col s12 m6">
+            <input type="text" name="q" value="{{ q }}">
+            <label class="active">Buscar (DNI / Apellido / Nombre)</label>
+          </div>
+
+          <div class="input-field col s12 m4">
+            <select name="activa">
+              <option value="1" {% if activa == "1" %}selected{% endif %}>Activas</option>
+              <option value="0" {% if activa == "0" %}selected{% endif %}>Inactivas</option>
+              <option value="" {% if activa == "" %}selected{% endif %}>Todas</option>
+            </select>
+            <label>Estado</label>
+          </div>
+
+          <div class="input-field col s12 m2" style="margin-top:22px;">
+            <button class="btn" type="submit">
+              <i class="material-icons left">search</i>Aplicar
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Listado</span>
+
+      <div class="responsive-table">
+        <table class="striped">
+          <thead>
+            <tr>
+              <th>DNI</th>
+              <th>Cliente</th>
+              <th>Teléfono</th>
+              <th>Activa</th>
+              <th class="right-align">Saldo</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cc in cuentas %}
+              <tr>
+                <td>{{ cc.cliente.dni }}</td>
+                <td>{{ cc.cliente.apellido }}, {{ cc.cliente.nombre }}</td>
+                <td>{{ cc.cliente.telefono|default:"-" }}</td>
+                <td>{% if cc.activa %}Sí{% else %}No{% endif %}</td>
+                <td class="right-align">{{ cc.saldo_calc|moneda_ar }}</td>
+                <td class="right-align">
+                  <a class="btn-small" href="{% url 'admin_panel:cc_detalle' cc.id %}">Ver</a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="6" class="grey-text">Sin resultados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      M.FormSelect.init(document.querySelectorAll('select'));
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+    M.FormSelect.init(document.querySelectorAll('select'));
+    M.Modal.init(document.querySelectorAll('.modal'));
+  });
+  </script>
+{% endblock %}

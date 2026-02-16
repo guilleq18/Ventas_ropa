@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css">
   <script src="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/js/materialize.min.js"></script>
 
-  <!-- ✅ Material Icons (si no, se ven los nombres como texto) -->
+  <!-- Material Icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
   <!-- HTMX -->
@@ -135,7 +135,7 @@
        NAV POS (pro)
     ======================= */
     .pos-nav{
-      background: #0f172a; /* azul muy oscuro */
+      background: #0f172a;
     }
     .pos-nav .brand-logo{
       font-weight: 800;
@@ -173,7 +173,6 @@
       background: rgba(255,255,255,.08);
     }
 
-    /* dropdown un poco más “pro” */
     .dropdown-content{
       border-radius:10px;
       overflow:hidden;
@@ -182,7 +181,6 @@
       font-size:14px;
     }
 
-    /* ✅ FIX: Materialize brand-logo viene ABSOLUTE y rompe el layout */
     .pos-nav .nav-wrapper{
       display:flex;
       align-items:center;
@@ -220,12 +218,10 @@
         Caja <span class="nav-badge">POS</span>
       </a>
 
-      <!-- Mobile -->
       <a href="#" data-target="mobile_nav" class="sidenav-trigger">
         <i class="material-icons">menu</i>
       </a>
 
-      <!-- Desktop -->
       <ul class="right hide-on-med-and-down nav-actions">
         <li>
           <span class="nav-chip">
@@ -266,14 +262,12 @@
     </div>
   </nav>
 
-  <!-- Dropdown usuario -->
   <ul id="user_dd" class="dropdown-content">
     <li><a href="/admin/password_change/" target="_blank"><i class="material-icons">lock</i>Cambiar clave</a></li>
     <li class="divider" tabindex="-1"></li>
     <li><a href="/admin/logout/"><i class="material-icons">logout</i>Salir</a></li>
   </ul>
 
-  <!-- Sidenav Mobile -->
   <ul class="sidenav" id="mobile_nav">
     <li>
       <div class="user-view" style="background:#0f172a;">
@@ -358,7 +352,7 @@
           </div>
         </div>
 
-        <!-- Pagos -->
+        <!-- Pagos (CARD COMPLETA) -->
         <div class="card pos-card card-pagos">
           <div class="card-content">
 
@@ -367,15 +361,20 @@
                 <span class="card-title" style="margin:0;">Pagos</span>
 
                 <div class="card-head-actions">
-                  <form method="post"
-                        hx-post="{% url 'caja:pagos_add' %}"
-                        hx-target="#pagos_body"
+                  {# ✅ POST con CSRF (si lo hacés con button suelto, Django te tira 403) #}
+                  <form hx-post="{% url 'caja:pagos_add_modal' %}"
+                        hx-target="#pagos_modal_body"
                         hx-swap="innerHTML"
                         style="margin:0;">
                     {% csrf_token %}
-                    <button type="submit" class="btn teal waves-effect waves-light">
-                      Agregar pago
+                    <button type="button"
+                            class="btn teal waves-effect waves-light"
+                            hx-post="{% url 'caja:pagos_modal_open' %}"
+                            hx-target="#pago_modal_content"
+                            hx-swap="innerHTML">
+                      Agregar forma de pago
                     </button>
+
                   </form>
                 </div>
               </div>
@@ -386,16 +385,17 @@
             </div>
 
             <div class="card-body" id="pagos_scroll">
-              <div id="pagos_body">
-                {% include "caja/_pagos_body.html" %}
+              <div id="pagos_table">
+                {% include "caja/_pagos_table.html" with payments=payments %}
               </div>
             </div>
 
           </div>
         </div>
 
-      </div>
-    </div>
+      </div><!-- /col der -->
+
+    </div><!-- /row -->
 
     <!-- Barra sticky inferior (Confirmación) -->
     <div class="card pos-sticky">
@@ -431,11 +431,28 @@
       </div>
     </div>
 
+  </div><!-- /container -->
+
+  {# =======================
+     Modal Pagos
+  ======================= #}
+    <div id="pago_modal" class="modal modal-fixed-footer">
+    <div class="modal-content" id="pago_modal_content">
+      <!-- HTMX inyecta SOLO el body acá -->
+    </div>
+
+    <div class="modal-footer">
+      
+
+      <a href="#!" class="btn blue waves-effect waves-light modal-close">
+        <i class="material-icons left">check</i>Aplicar
+      </a>
+    </div>
   </div>
 
-  <!-- =======================
+  {# =======================
      Modal Venta (post-confirm)
-  ======================= #}-->
+  ======================= #}
   {% if last_sale %}
     <div id="venta_modal" class="modal modal-fixed-footer">
       <div class="modal-content">
@@ -479,79 +496,55 @@
 
         <h6 style="margin:16px 0 8px;">Formas de pago</h6>
         <ul class="collection" style="margin:0;">
-          {% if last_sale_pagos %}
-            {% for p in last_sale_pagos %}
-              <li class="collection-item" style="display:flex; justify-content:space-between; gap:12px;">
-                <div>
-                  <div style="font-weight:600;">{{ p.get_tipo_display }}</div>
+          {% for p in last_sale_pagos %}
+            <li class="collection-item" style="display:flex; justify-content:space-between; gap:12px;">
+              <div>
+                <div style="font-weight:600;">{{ p.get_tipo_display }}</div>
 
-                  {% if p.tipo == "CREDITO" %}
-                    <div class="grey-text" style="font-size:12px;">
-                      {% if p.plan %}{{ p.plan.tarjeta }} — {% endif %}
-                      {{ p.cuotas }} cuotas
-                      {% if p.recargo_pct|add:0 > 0 %} — Recargo {{ p.recargo_pct|num_ar }}%{% endif %}
-                    </div>
-                  {% endif %}
+                {% if p.tipo == "CREDITO" %}
+                  <div class="grey-text" style="font-size:12px;">
+                    {% if p.plan %}{{ p.plan.tarjeta }} — {% endif %}
+                    {{ p.cuotas }} cuotas
+                    {% if p.recargo_pct|add:0 > 0 %} — Recargo {{ p.recargo_pct|num_ar }}%{% endif %}
+                  </div>
+                {% endif %}
 
-                  {% if p.referencia %}
-                    <div class="grey-text" style="font-size:12px;">Ref: {{ p.referencia|num_ar }}</div>
-                  {% endif %}
-                </div>
+                {% if p.referencia %}
+                  <div class="grey-text" style="font-size:12px;">Ref: {{ p.referencia|num_ar }}</div>
+                {% endif %}
+              </div>
 
-                <div style="text-align:right; white-space:nowrap;">
-                  <strong>${{ p.monto|num_ar }}</strong>
-                  {% if p.tipo == "CREDITO" and p.recargo_calc|add:0 > 0 %}
-                    <div class="grey-text" style="font-size:12px;">Recargo: +${{ p.recargo_calc|num_ar }}</div>
-                  {% endif %}
-                </div>
-              </li>
-            {% endfor %}
-          {% else %}
-            {% for p in last_sale.pagos.all %}
-              <li class="collection-item" style="display:flex; justify-content:space-between; gap:12px;">
-                <div>
-                  <div style="font-weight:600;">{{ p.get_tipo_display }}</div>
-
-                  {% if p.tipo == "CREDITO" %}
-                    <div class="grey-text" style="font-size:12px;">
-                      {% if p.plan %}{{ p.plan.tarjeta }} — {% endif %}
-                      {{ p.cuotas }} cuotas
-                      {% if p.recargo_pct|add:0 > 0 %} — Recargo {{ p.recargo_pct|num_ar }}%{% endif %}
-                    </div>
-                    {% if p.recargo_monto|add:0 > 0 %}
-                      <div class="grey-text" style="font-size:12px;">Recargo: +${{ p.recargo_monto|num_ar }}</div>
-                    {% endif %}
-                  {% endif %}
-
-                  {% if p.referencia %}
-                    <div class="grey-text" style="font-size:12px;">Ref: {{ p.referencia|num_ar }}</div>
-                  {% endif %}
-                </div>
-
-                <div style="text-align:right; white-space:nowrap;">
-                  <strong>${{ p.monto|num_ar }}</strong>
-                </div>
-              </li>
-            {% endfor %}
-          {% endif %}
+              <div style="text-align:right; white-space:nowrap;">
+                <strong>${{ p.monto|num_ar }}</strong>
+                {% if p.tipo == "CREDITO" and p.recargo_calc|add:0 > 0 %}
+                  <div class="grey-text" style="font-size:12px;">Recargo: +${{ p.recargo_calc|num_ar }}</div>
+                {% endif %}
+              </div>
+            </li>
+          {% endfor %}
         </ul>
 
         <div style="margin-top:14px; text-align:right;">
           <span class="grey-text text-darken-2">Total venta:</span>
           <strong style="font-size:18px;">
-            ${% if last_sale_total_final|num_ar %}{{ last_sale_total_final|num_ar }}{% else %}{{ last_sale.total|num_ar }}{% endif %}
+            {{ last_sale_total_final|num_ar }}
           </strong>
         </div>
 
       </div>
 
       <div class="modal-footer">
-        <a href="{% url 'caja:ticket' last_sale.id %}?print=1" target="_blank"
-           class="btn blue waves-effect waves-light">
-          Ticket
-        </a>
-        <a href="#!" class="modal-close btn-flat">Cerrar</a>
-      </div>
+      
+
+      <a href="#!" class="modal-close btn-flat">Cerrar</a>
+      <a href="{% url 'caja:ticket' last_sale.id %}?print=1"
+        target="_blank" rel="noopener"
+        class="btn blue waves-effect waves-light"
+        onclick="closeVentaModalAndFocus();">
+        <i class="material-icons left">check</i>Aplicar
+      </a>
+    </div>
+
     </div>
   {% endif %}
 
@@ -574,7 +567,6 @@
       const sidenavs = document.querySelectorAll('.sidenav');
       M.Sidenav.init(sidenavs);
 
-      // Reloj simple
       const el = document.getElementById("nav_clock");
       function tick(){
         if(!el) return;
@@ -600,7 +592,6 @@
       modalEl.style.right = "auto";
     }
 
-    // CSRF robusto para htmx.ajax
     function getCookie(name) {
       const value = `; ${document.cookie}`;
       const parts = value.split(`; ${name}=`);
@@ -615,10 +606,16 @@
       initSelects(document);
       initNav();
 
+      // Modal pagos
+      const pagoModalEl = document.getElementById('pago_modal');
+      if (pagoModalEl && window.M && M.Modal) {
+        M.Modal.init(pagoModalEl, { dismissible:true });
+      }
+
       // Modal venta
-      const modalEl = document.getElementById('venta_modal');
-      if (modalEl && window.M && M.Modal) {
-        const inst = M.Modal.init(modalEl, {
+      const ventaModalEl = document.getElementById('venta_modal');
+      if (ventaModalEl && window.M && M.Modal) {
+        const inst = M.Modal.init(ventaModalEl, {
           dismissible: true,
           onOpenEnd: centerVentaModal
         });
@@ -649,6 +646,21 @@
           }
         });
       }
+    });
+
+    // Abrir/cerrar modal pagos vía triggers
+    document.body.addEventListener("openPagoModal", function(){
+      const el = document.getElementById("pago_modal");
+      if (!el || !window.M || !M.Modal) return;
+      const inst = M.Modal.getInstance(el) || M.Modal.init(el, { dismissible:true });
+      inst.open();
+    });
+
+    document.body.addEventListener("closePagoModal", function(){
+      const el = document.getElementById("pago_modal");
+      if (!el || !window.M || !M.Modal) return;
+      const inst = M.Modal.getInstance(el);
+      if (inst) inst.close();
     });
 
     // =========================

@@ -1,57 +1,74 @@
 # caja/views.py
 # Comentarios en español como pediste.
 
-
 import uuid
 import json
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 
 from core.models import Sucursal
 from catalogo.models import Variante, StockSucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from ventas.services import confirmar_venta
-from django.db import transaction
-from decimal import Decimal, InvalidOperation
 
 
+# ======================================================================
+# Helpers: Formato AR (para OOB sin depender del filtro en templates)
+# ======================================================================
 
+def _fmt_ar(value, decimals: int = 2) -> str:
+    """
+    Formatea estilo Argentina:
+      miles con punto y decimales con coma
+      12345.6 -> 12.345,60
+    """
+    try:
+        decimals = int(decimals)
+    except Exception:
+        decimals = 2
 
-
-# =========================
-# Helpers: Pagos (session)
-# =========================
-
-def _parse_decimal_ar(raw) -> Decimal:
-    s = (raw or "").strip()
-    if not s:
-        return Decimal("0.00")
-
-    s = s.replace("$", "").replace(" ", "")
-
-    # Caso típico AR: 23.648,00  -> 23648.00
-    if "," in s and "." in s:
-        s = s.replace(".", "").replace(",", ".")
-    elif "," in s:
-        s = s.replace(",", ".")
-
-    # limpiar caracteres raros
-    allowed = set("0123456789.-")
-    s = "".join(ch for ch in s if ch in allowed)
-
-    if s in ("", "-", ".", "-."):
-        return Decimal("0.00")
+    if value is None or value == "":
+        return ""
 
     try:
-        return Decimal(s).quantize(Decimal("0.01"))
-    except InvalidOperation:
-        return Decimal("0.00")
+        n = Decimal(str(value))
+    except Exception:
+        return str(value)
+
+    q = Decimal("1") if decimals <= 0 else Decimal("1." + ("0" * decimals))
+    n = n.quantize(q, rounding=ROUND_HALF_UP)
+
+    s = f"{n:,.{max(decimals,0)}f}"
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+
+
+def _build_stock_map(sucursal, variante_ids: list[int]) -> dict:
+    if not variante_ids:
+        return {}
+
+    rows = (
+        StockSucursal.objects
+        .filter(sucursal=sucursal, variante_id__in=variante_ids)
+        .values("variante_id", "cantidad")
+    )
+    return {int(r["variante_id"]): int(r["cantidad"] or 0) for r in rows}
+
+# ======================================================================
+# Helpers: Pagos (session)
+# ======================================================================
+
+
 
 def _payments_get(request) -> list:
     return request.session.get("pos_payments", [])
@@ -85,29 +102,55 @@ def _payments_default() -> dict:
     }
 
 
+def _parse_decimal_ar(raw) -> Decimal:
+    s = (raw or "").strip()
+    if not s:
+        return Decimal("0.00")
+
+    s = s.replace("$", "").replace(" ", "")
+
+    # Caso típico AR: 23.648,00  -> 23648.00
+    if "," in s and "." in s:
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        s = s.replace(",", ".")
+
+    allowed = set("0123456789.-")
+    s = "".join(ch for ch in s if ch in allowed)
+
+    if s in ("", "-", ".", "-."):
+        return Decimal("0.00")
+
+    try:
+        return Decimal(s).quantize(Decimal("0.01"))
+    except InvalidOperation:
+        return Decimal("0.00")
+
+
 def _payments_total(payments: list) -> Decimal:
     """
     Total realmente cobrado (lo que entra a caja).
     - CREDITO: monto + recargo
     - resto: monto
     """
-    total = Decimal("0")
+    total = Decimal("0.00")
+
     for p in payments:
         tipo = (p.get("tipo") or "").strip()
 
         try:
-            monto = Decimal(str(p.get("monto", "0") or "0"))
+            monto = Decimal(str(p.get("monto", "0") or "0")).quantize(Decimal("0.01"))
         except Exception:
-            monto = Decimal("0")
+            monto = Decimal("0.00")
 
         if monto <= 0:
             continue
 
         if tipo == "CREDITO":
             try:
-                recargo_pct = Decimal(str(p.get("recargo_pct") or "0"))
+                recargo_pct = Decimal(str(p.get("recargo_pct") or "0")).quantize(Decimal("0.01"))
             except Exception:
-                recargo_pct = Decimal("0")
+                recargo_pct = Decimal("0.00")
 
             recargo_monto = (monto * recargo_pct / Decimal("100")).quantize(Decimal("0.01"))
             total += (monto + recargo_monto)
@@ -120,22 +163,22 @@ def _payments_total(payments: list) -> Decimal:
 def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
     """
     Devuelve:
-      - ui_payments: lista de pagos enriquecidos (tipo_locked, cálculos, selected_plan_id, etc.)
+      - ui_payments: lista de pagos enriquecidos (cálculos, selected_plan_id, etc.)
       - recargos: suma recargos crédito
       - total_cobrar: total_base + recargos
       - pagado: _payments_total(payments)
       - saldo: total_cobrar - pagado
     """
     ui_payments = []
-    recargos_credito = Decimal("0")
+    recargos_credito = Decimal("0.00")
 
     for p in payments:
         tipo = (p.get("tipo") or "").strip()
 
         try:
-            monto = Decimal(str(p.get("monto", "0") or "0"))
+            monto = Decimal(str(p.get("monto", "0") or "0")).quantize(Decimal("0.01"))
         except Exception:
-            monto = Decimal("0")
+            monto = Decimal("0.00")
 
         try:
             cuotas = int(p.get("cuotas") or 1)
@@ -143,9 +186,9 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
             cuotas = 1
 
         try:
-            recargo_pct = Decimal(str(p.get("recargo_pct") or "0"))
+            recargo_pct = Decimal(str(p.get("recargo_pct") or "0")).quantize(Decimal("0.01"))
         except Exception:
-            recargo_pct = Decimal("0")
+            recargo_pct = Decimal("0.00")
 
         recargo_monto = (monto * recargo_pct / Decimal("100")).quantize(Decimal("0.01"))
         total_tarjeta = (monto + recargo_monto).quantize(Decimal("0.01"))
@@ -155,17 +198,12 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
             recargos_credito += recargo_monto
 
         p_ui = dict(p)
-        p_ui["monto"] = str(monto.quantize(Decimal("0.01")))
+        p_ui["monto"] = str(monto)
         p_ui["cuotas"] = cuotas
-        p_ui["recargo_pct"] = str(recargo_pct.quantize(Decimal("0.01")))
+        p_ui["recargo_pct"] = str(recargo_pct)
         p_ui["recargo_monto_calc"] = recargo_monto
         p_ui["total_tarjeta_calc"] = total_tarjeta
         p_ui["cuota_calc"] = cuota_est
-
-        # bloquear SOLO el select de TIPO cuando el monto ya impactó (monto > 0)
-        p_ui["tipo_locked"] = bool(monto > 0)
-
-        # para marcar seleccionado en cuotas (si tu _cuotas_options lo usa)
         p_ui["selected_plan_id"] = (p.get("plan_id") or "").strip()
 
         ui_payments.append(p_ui)
@@ -186,18 +224,240 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
     }
 
 
-# =========================
+def _ctx_pagos_pos(request) -> dict:
+    payments = _payments_get(request) or []
+    total_base = _cart_total(_cart_get(request))
+    pay_ctx = _payments_build_ui_and_totals(payments, total_base)
+
+    tarjetas = list(
+        PlanCuotas.objects.filter(activo=True)
+        .values_list("tarjeta", flat=True)
+        .distinct()
+        .order_by("tarjeta")
+    )
+
+    tipos = list(VentaPago.Tipo.choices)
+
+    return {
+        "payments_session": payments,
+        "payments": pay_ctx["ui_payments"],     # <- para templates
+        "ui_payments": pay_ctx["ui_payments"],  # <- por si lo venías usando
+        "total_base": total_base,
+        "recargos": pay_ctx["recargos"],
+        "total_cobrar": pay_ctx["total_cobrar"],
+        "pagado": pay_ctx["pagado"],
+        "saldo": pay_ctx["saldo"],
+        "tarjetas": tarjetas,
+        "tipos": tipos,
+    }
+
+
+def _oob_pagos_html(request) -> str:
+    """
+    Refresca el card (tabla + totales + total_cobrar ids) sin tocar el modal.
+    Requiere que existan en el DOM:
+      - <div id="pagos_table">...</div>
+      - <div id="pagos_totales">...</div>
+      - <strong id="total_cobrar_card">...</strong>
+      - <strong id="total_cobrar_confirm">...</strong>
+    """
+    ctx = _ctx_pagos_pos(request)
+
+    html_table = render_to_string(
+        "caja/_pagos_table.html",
+        {"payments": ctx["payments"]},
+        request=request
+    )
+    html_tot = render_to_string(
+        "caja/_pagos_totales.html",
+        ctx,
+        request=request
+    )
+
+    total_fmt = _fmt_ar(ctx["total_cobrar"], 2)
+
+    return (
+        f'<div hx-swap-oob="innerHTML:#pagos_table">{html_table}</div>'
+        f'<div hx-swap-oob="innerHTML:#pagos_totales">{html_tot}</div>'
+        f'<div hx-swap-oob="innerHTML:#total_cobrar_card">{total_fmt}</div>'
+        f'<div hx-swap-oob="innerHTML:#total_cobrar_confirm">{total_fmt}</div>'
+    )
+
+
+def _render_pagos_modal_body_html(request) -> str:
+    ctx = _ctx_pagos_pos(request)
+
+    return render_to_string("caja/_pagos_modal_body.html", {
+        "payments": ctx["ui_payments"],
+        "total_base": ctx["total_base"],
+        "recargos": ctx["recargos"],
+        "total_cobrar": ctx["total_cobrar"],
+        "pagado": ctx["pagado"],
+        "saldo": ctx["saldo"],
+        "tarjetas": ctx["tarjetas"],
+    }, request=request)
+
+
+
+# ======================================================================
+# Endpoints: Modal Pagos (abrir / agregar / guardar / quitar)
+# ======================================================================
+
+@login_required
+def pagos_modal_open(request):
+    """
+    Abre el modal mostrando los pagos actuales (SIN crear uno nuevo).
+    """
+    resp = HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
+    resp["HX-Trigger"] = json.dumps({"openPagoModal": {}})
+    return resp
+
+
+@login_required
+@require_POST
+def pagos_add_modal(request):
+    """
+    Agrega una nueva forma de pago y abre el modal.
+    Si el carrito está vacío, NO crea pagos (solo muestra el aviso del modal).
+    """
+    total_base = _cart_total(_cart_get(request))
+    if total_base <= 0:
+        return pagos_modal_open(request)
+
+    payments = _payments_get(request) or []
+    payments.append(_payments_default())
+    _payments_save(request, payments)
+
+    resp = HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
+    resp["HX-Trigger"] = json.dumps({"openPagoModal": {}})
+    return resp
+
+
+@login_required
+@require_POST
+def pagos_set_modal(request, idx: int):
+    """
+    Guarda/actualiza el pago idx desde el modal.
+    """
+    payments = _payments_get(request) or []
+    if not (0 <= idx < len(payments)):
+        return HttpResponse("Índice inválido", status=400)
+
+    p = payments[idx]
+
+    tipo = (request.POST.get("tipo") or p.get("tipo") or "CONTADO").strip()
+    p["tipo"] = tipo
+
+    # monto AR -> Decimal -> string normalizado
+    p["monto"] = str(_parse_decimal_ar(request.POST.get("monto")))
+
+    # referencia
+    p["referencia"] = (request.POST.get("referencia") or "").strip()
+
+    if tipo == "CREDITO":
+        tarjeta = (request.POST.get("tarjeta") or "").strip()
+        p["tarjeta"] = tarjeta
+
+        plan_id = (request.POST.get("plan_id") or "").strip()
+        p["plan_id"] = plan_id
+
+        # si hay plan, tomamos cuotas/recargo del plan (más seguro)
+        if plan_id:
+            plan = PlanCuotas.objects.filter(id=int(plan_id), activo=True).first()
+            if plan:
+                p["cuotas"] = int(plan.cuotas)
+                p["recargo_pct"] = str(Decimal(str(plan.recargo_pct)).quantize(Decimal("0.01")))
+                p["tarjeta"] = plan.tarjeta
+        else:
+            # fallback (si tu UI no usa plan_id en algún caso)
+            try:
+                p["cuotas"] = int(request.POST.get("cuotas") or p.get("cuotas") or 1)
+            except Exception:
+                p["cuotas"] = 1
+
+            # si querés permitir recargo manual, lo leés acá; si no, dejalo 0
+            p["recargo_pct"] = "0.00"
+
+    else:
+        # si no es crédito, limpiar campos de crédito
+        p["tarjeta"] = ""
+        p["plan_id"] = ""
+        p["cuotas"] = 1
+        p["recargo_pct"] = "0.00"
+
+    payments[idx] = p
+    _payments_save(request, payments)
+
+    return HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
+
+
+@login_required
+@require_POST
+def pagos_del_modal(request, idx: int):
+    """
+    Quitar desde el modal (y refrescar modal + card).
+    """
+    payments = _payments_get(request) or []
+    if 0 <= idx < len(payments):
+        payments.pop(idx)
+        _payments_save(request, payments)
+
+    return HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
+
+
+@login_required
+@require_POST
+def pagos_del_table(request, idx: int):
+    """
+    Quitar desde la tabla del card (sin devolver modal).
+    """
+    payments = _payments_get(request) or []
+    if 0 <= idx < len(payments):
+        payments.pop(idx)
+        _payments_save(request, payments)
+
+    return HttpResponse(_oob_pagos_html(request))
+
+
+# ======================================================================
+# Endpoint: Cuotas (HTMX)
+# ======================================================================
+
+@login_required
+def pagos_cuotas(request, idx: int):
+    tarjeta = (request.GET.get("tarjeta") or "").strip()
+
+    planes = (
+        PlanCuotas.objects
+        .filter(activo=True, tarjeta=tarjeta)
+        .order_by("cuotas")
+    )
+
+    payments = _payments_get(request) or []
+    selected_plan_id = ""
+    if 0 <= idx < len(payments):
+        selected_plan_id = (payments[idx].get("plan_id") or "").strip()
+
+    return render(request, "caja/_cuotas_options.html", {
+        "idx": idx,
+        "tarjeta": tarjeta,
+        "planes": planes,
+        "selected_plan_id": selected_plan_id,
+    })
+
+
+# ======================================================================
 # Helpers: Sucursal fija
-# =========================
+# ======================================================================
 
 def _get_pos_sucursal():
     sid = getattr(settings, "POS_SUCURSAL_ID", 1)
     return Sucursal.objects.get(id=sid, activa=True)
 
 
-# =========================
+# ======================================================================
 # Helpers: Carrito (session)
-# =========================
+# ======================================================================
 
 def _cart_get(request) -> dict:
     return request.session.get("pos_cart", {})
@@ -212,12 +472,13 @@ def _cart_total(cart: dict) -> Decimal:
     """
     Total del carrito robusto: tolera datos sucios y carrito vacío.
     """
-    total = Decimal("0")
+    total = Decimal("0.00")
+
     for item in cart.values():
         try:
-            precio = Decimal(str(item.get("precio", "0") or "0"))
+            precio = Decimal(str(item.get("precio", "0") or "0")).quantize(Decimal("0.01"))
         except Exception:
-            precio = Decimal("0")
+            precio = Decimal("0.00")
 
         try:
             qty = int(item.get("qty", 0) or 0)
@@ -242,7 +503,7 @@ def _build_cart_context(request):
     }
 
     rows = []
-    total = Decimal("0")
+    total = Decimal("0.00")
 
     for vid_str, item in cart.items():
         try:
@@ -260,9 +521,9 @@ def _build_cart_context(request):
             qty = 0
 
         try:
-            precio = Decimal(str(item.get("precio", "0") or "0"))
+            precio = Decimal(str(item.get("precio", "0") or "0")).quantize(Decimal("0.01"))
         except Exception:
-            precio = Decimal("0")
+            precio = Decimal("0.00")
 
         if qty <= 0:
             continue
@@ -291,295 +552,53 @@ def _get_stock_disponible(sucursal, variante_id: int) -> int:
     return int(row or 0)
 
 
+# ======================================================================
+# Render: Carrito (HTMX) + OOB Pagos
+# ======================================================================
+
+def _render_cart(request):
+    sucursal = _get_pos_sucursal()
+
+    cart_ctx = _build_cart_context(request)
+    variante_ids = [row["variante"].id for row in cart_ctx["items"]]
+    stock_map = _build_stock_map(sucursal, variante_ids)
+
+
+    # Totales de pagos para los OOB del carrito
+    payments = _payments_get(request) or []
+    total_base = Decimal(cart_ctx["total"]).quantize(Decimal("0.01"))
+    pay_ctx = _payments_build_ui_and_totals(payments, total_base)
+
+    return render(request, "caja/_carrito.html", {
+        "items": cart_ctx["items"],
+        "total": cart_ctx["total"],
+
+        # ✅ esto evita "Sin stock" falso
+        "sucursal": sucursal,
+        "stock_map": stock_map,
+
+        # ✅ para que los includes/OOB de totales no queden vacíos
+        "total_base": total_base,
+        "recargos": pay_ctx["recargos"],
+        "total_cobrar": pay_ctx["total_cobrar"],
+        "pagado": pay_ctx["pagado"],
+        "saldo": pay_ctx["saldo"],
+
+        # si ya no usás pagos_body, dejalo apagado
+        "oob_pagos": False,
+    })
+
+
+
 def _render_cart_with_toast(request, message: str):
     resp = _render_cart(request)
     resp["HX-Trigger"] = json.dumps({"posToast": {"message": message}})
     return resp
 
 
-def _render_cart(request):
-    cart = _cart_get(request)  # ✅ SIEMPRE primero
-
-    # === Total base del carrito ===
-    try:
-        total_base = _cart_total(cart).quantize(Decimal("0.01"))
-    except Exception:
-        total_base = Decimal("0.00")
-
-    # compat (tu template usa {{ total }} en algunos lados)
-    total = total_base
-
-    # === Items del carrito ===
-    variante_ids = []
-    try:
-        variante_ids = [int(k) for k in cart.keys()]
-    except Exception:
-        variante_ids = []
-
-    variantes = {
-        v.id: v
-        for v in Variante.objects.select_related("producto").filter(id__in=variante_ids)
-    }
-
-    rows = []
-    for vid_str, item in cart.items():
-        try:
-            vid = int(vid_str)
-        except Exception:
-            continue
-
-        v = variantes.get(vid)
-        if not v:
-            continue
-
-        try:
-            qty = int(item.get("qty", 0))
-        except Exception:
-            qty = 0
-
-        try:
-            precio = Decimal(str(item.get("precio", "0") or "0"))
-        except Exception:
-            precio = Decimal("0")
-
-        if qty <= 0:
-            continue
-
-        rows.append({
-            "variante": v,
-            "qty": qty,
-            "precio": precio,
-            "subtotal": (precio * qty).quantize(Decimal("0.01")),
-        })
-
-    # === Sucursal + stock ===
-    sucursal = _get_pos_sucursal()
-
-    stock_map = {}
-    if variante_ids:
-        stock_rows = (
-            StockSucursal.objects
-            .filter(sucursal=sucursal, variante_id__in=variante_ids)
-            .values("variante_id", "cantidad")
-        )
-        stock_map = {r["variante_id"]: r["cantidad"] for r in stock_rows}
-
-    # === Pagos: NO crear pagos si el carrito está vacío ===
-    payments = _payments_get(request) or []
-    if total_base > 0 and not payments:
-        payments = [_payments_default()]
-        _payments_save(request, payments)
-        request.session.modified = True
-
-    # === Recargos / total a cobrar (Total + Recargos) ===
-    recargos = Decimal("0.00")
-    for p in payments:
-        if (p.get("tipo") or "").strip() == "CREDITO":
-            try:
-                m = Decimal(str(p.get("monto", "0") or "0"))
-                rp = Decimal(str(p.get("recargo_pct") or "0"))
-            except Exception:
-                m, rp = Decimal("0"), Decimal("0")
-
-            if m > 0 and rp > 0:
-                recargos += (m * rp / Decimal("100"))
-
-    recargos = recargos.quantize(Decimal("0.01"))
-    total_cobrar = (total_base + recargos).quantize(Decimal("0.01"))
-
-    pagado = _payments_total(payments)  # incluye recargos de crédito
-    saldo = (total_cobrar - pagado).quantize(Decimal("0.01"))
-
-    # === Tarjetas ===
-    tarjetas = list(
-        PlanCuotas.objects.filter(activo=True)
-        .values_list("tarjeta", flat=True)
-        .distinct()
-        .order_by("tarjeta")
-    )
-
-    return render(request, "caja/_carrito.html", {
-        "items": rows,
-        "total": total,                 # (base)
-        "total_base": total_base,        # (base)
-        "recargos": recargos,
-        "total_cobrar": total_cobrar,    # (base + recargos)
-
-        "sucursal": sucursal,
-        "stock_map": stock_map,
-
-        # OOB pagos desde carrito
-        "oob_pagos": True,
-        "payments": payments,
-        "pagado": pagado,
-        "saldo": saldo,
-
-        "tarjetas": tarjetas,
-    })
-
-
-
-# =========================
-# Render de Pagos (UI)
-# =========================
-
-def _render_pagos(request):
-    payments = _payments_get(request)
-    total_base = _cart_total(_cart_get(request))
-
-    pay_ctx = _payments_build_ui_and_totals(payments, total_base)
-
-    tarjetas = list(
-        PlanCuotas.objects.filter(activo=True)
-        .values_list("tarjeta", flat=True)
-        .distinct()
-        .order_by("tarjeta")
-    )
-
-    # DEVUELVE SOLO EL BODY (hx-target="#pagos_body")
-    return render(request, "caja/_pagos_body.html", {
-        "payments": pay_ctx["ui_payments"],
-        "total_base": total_base,
-        "recargos": pay_ctx["recargos"],
-        "total_cobrar": pay_ctx["total_cobrar"],
-        "pagado": pay_ctx["pagado"],
-        "saldo": pay_ctx["saldo"],
-        "tarjetas": tarjetas,
-    })
-
-
-# =========================
-# Endpoints Pagos
-# =========================
-
-@login_required
-def pagos_cuotas(request, idx: int):
-    tarjeta = (request.GET.get("tarjeta") or "").strip()
-
-    planes = (
-        PlanCuotas.objects
-        .filter(activo=True, tarjeta=tarjeta)
-        .order_by("cuotas")
-    )
-
-    payments = _payments_get(request)
-    selected_plan_id = ""
-    if 0 <= idx < len(payments):
-        selected_plan_id = (payments[idx].get("plan_id") or "").strip()
-
-    return render(request, "caja/_cuotas_options.html", {
-        "idx": idx,
-        "tarjeta": tarjeta,
-        "planes": planes,
-        "selected_plan_id": selected_plan_id,
-    })
-
-
-@login_required
-@require_POST
-def pagos_add(request):
-    payments = _payments_get(request)
-    payments.append(_payments_default())
-    _payments_save(request, payments)
-    return _render_pagos(request)
-
-
-@login_required
-@require_POST
-def pagos_del(request, idx: int):
-    payments = _payments_get(request)
-    if 0 <= idx < len(payments):
-        payments.pop(idx)
-        _payments_save(request, payments)
-    return _render_pagos(request)
-
-
-@login_required
-@require_POST
-def pagos_set(request, idx: int):
-    payments = _payments_get(request)
-    
-    if not (0 <= idx < len(payments)):
-        return _render_pagos(request)
-
-    p = payments[idx]
-
-    if request.POST.get("monto") is not None:
-        m = _parse_decimal_ar(request.POST.get("monto"))
-        p["monto"] = str(m)  # se guarda normalizado con punto para cálculos internos
-
-
-    if request.POST.get("tipo") is not None:
-        p["tipo"] = (request.POST.get("tipo") or p.get("tipo", "CONTADO")).strip()
-
-    tipo = (p.get("tipo") or "CONTADO").strip()
-
-    if tipo != "CREDITO":
-        p["tarjeta"] = ""
-        p["plan_id"] = ""
-        p["cuotas"] = 1
-        p["recargo_pct"] = "0.00"
-
-    if request.POST.get("tarjeta") is not None:
-        tarjeta = (request.POST.get("tarjeta") or "").strip()
-
-        if tarjeta:
-            p["tipo"] = "CREDITO"
-            p["tarjeta"] = tarjeta
-
-            plan_default = (
-                PlanCuotas.objects
-                .filter(activo=True, tarjeta=tarjeta)
-                .order_by("cuotas")
-                .first()
-            )
-
-            if plan_default:
-                p["plan_id"] = str(plan_default.id)
-                p["cuotas"] = int(plan_default.cuotas)
-                p["recargo_pct"] = str(plan_default.recargo_pct)
-            else:
-                p["plan_id"] = ""
-                p["cuotas"] = 1
-                p["recargo_pct"] = "0.00"
-        else:
-            p["tarjeta"] = ""
-            p["plan_id"] = ""
-            p["cuotas"] = 1
-            p["recargo_pct"] = "0.00"
-
-    plan_id = (request.POST.get("plan_id") or "").strip()
-    if plan_id:
-        try:
-            plan = PlanCuotas.objects.get(id=int(plan_id), activo=True)
-        except (PlanCuotas.DoesNotExist, ValueError):
-            return HttpResponse("Plan inválido", status=400)
-
-        p["tipo"] = "CREDITO"
-        p["plan_id"] = str(plan.id)
-        p["tarjeta"] = plan.tarjeta
-        p["cuotas"] = int(plan.cuotas)
-        p["recargo_pct"] = str(plan.recargo_pct)
-
-    if request.POST.get("referencia") is not None:
-        p["referencia"] = request.POST.get("referencia") or ""
-
-    p["pos_proveedor"] = request.POST.get("pos_proveedor") or p.get("pos_proveedor", "")
-    p["pos_terminal_id"] = request.POST.get("pos_terminal_id") or p.get("pos_terminal_id", "")
-    p["pos_lote"] = request.POST.get("pos_lote") or p.get("pos_lote", "")
-    p["pos_cupon"] = request.POST.get("pos_cupon") or p.get("pos_cupon", "")
-    p["pos_autorizacion"] = request.POST.get("pos_autorizacion") or p.get("pos_autorizacion", "")
-    p["pos_marca"] = request.POST.get("pos_marca") or p.get("pos_marca", "")
-    p["pos_ultimos4"] = request.POST.get("pos_ultimos4") or p.get("pos_ultimos4", "")
-
-    payments[idx] = p
-    _payments_save(request, payments)
-    return _render_pagos(request)
-
-
-# =========================
+# ======================================================================
 # Pantalla POS
-# =========================
+# ======================================================================
 
 @login_required
 def pos(request):
@@ -589,11 +608,7 @@ def pos(request):
     sucursal = _get_pos_sucursal()
     cart_ctx = _build_cart_context(request)
 
-    payments = _payments_get(request)
-    if not payments:
-        payments = [_payments_default()]
-        _payments_save(request, payments)
-
+    payments = _payments_get(request) or []
     total_base = Decimal(cart_ctx["total"]).quantize(Decimal("0.01"))
     pay_ctx = _payments_build_ui_and_totals(payments, total_base)
 
@@ -604,7 +619,7 @@ def pos(request):
         .order_by("tarjeta")
     )
 
-    # ✅ Venta recién confirmada (para mostrar modal una sola vez)
+    # Venta recién confirmada (para mostrar modal una sola vez)
     last_sale = None
     last_sale_total_items = Decimal("0.00")
     last_sale_total_recargos = Decimal("0.00")
@@ -621,15 +636,12 @@ def pos(request):
                 .get(id=int(last_sale_id))
             )
 
-            # Total por items (base, sin recargos)
             last_sale_total_items = sum(
                 (it.subtotal or Decimal("0.00")) for it in last_sale.items.all()
             ).quantize(Decimal("0.01"))
 
-            # Lista de pagos (evaluada)
             last_sale_pagos = list(last_sale.pagos.select_related("plan").all())
 
-            # Recargos total + recargo por pago
             rec = Decimal("0.00")
             for p in last_sale_pagos:
                 if p.tipo == "CREDITO":
@@ -640,19 +652,10 @@ def pos(request):
                 rec += p.recargo_calc
 
             last_sale_total_recargos = rec.quantize(Decimal("0.01"))
-
-            # Total final (base + recargos)
             last_sale_total_final = (last_sale_total_items + last_sale_total_recargos).quantize(Decimal("0.01"))
-
-            # Alternativa: usar el total guardado en venta (siempre que ya incluya recargos)
-            # last_sale_total_final = (last_sale.total or Decimal("0.00")).quantize(Decimal("0.01"))
 
         except (Venta.DoesNotExist, ValueError, TypeError):
             last_sale = None
-            last_sale_total_items = Decimal("0.00")
-            last_sale_total_recargos = Decimal("0.00")
-            last_sale_total_final = Decimal("0.00")
-            last_sale_pagos = []
 
     request.session.modified = True
 
@@ -662,6 +665,7 @@ def pos(request):
         "cart_items": cart_ctx["items"],
         "cart_total": cart_ctx["total"],
 
+        # pagos para el card
         "payments": pay_ctx["ui_payments"],
         "total_base": total_base,
         "recargos": pay_ctx["recargos"],
@@ -670,7 +674,7 @@ def pos(request):
         "saldo": pay_ctx["saldo"],
         "tarjetas": tarjetas,
 
-        # ✅ modal
+        # modal venta confirmada
         "last_sale": last_sale,
         "last_sale_total_items": last_sale_total_items,
         "last_sale_pagos": last_sale_pagos,
@@ -678,10 +682,9 @@ def pos(request):
     })
 
 
-
-# =========================
+# ======================================================================
 # Búsqueda / Scanner
-# =========================
+# ======================================================================
 
 @login_required
 def buscar_variantes(request):
@@ -747,11 +750,7 @@ def scan_add(request):
 
         _cart_save(request, cart)
 
-        payments = _payments_get(request)
-        if not payments:
-            _payments_save(request, [_payments_default()])
-
-        # ✅ SIEMPRE devolver el carrito en match exacto
+        # ✅ Siempre devolver el carrito (NO crea pagos, NO abre modal)
         return _render_cart(request)
 
     results = list(
@@ -787,9 +786,9 @@ def scan_add(request):
     return resp
 
 
-# =========================
+# ======================================================================
 # Carrito
-# =========================
+# ======================================================================
 
 @login_required
 @require_POST
@@ -871,10 +870,9 @@ def carrito_vaciar(request):
     return _render_cart(request)
 
 
-# =========================
+# ======================================================================
 # Confirmar
-# =========================
-
+# ======================================================================
 
 @login_required
 @require_POST
@@ -894,13 +892,13 @@ def confirmar(request):
     # Total base (sin recargos)
     total_base = _cart_total(cart).quantize(Decimal("0.01"))
 
-    payments = _payments_get(request)
+    payments = _payments_get(request) or []
     if not payments:
         return HttpResponse("No hay pagos cargados.", status=400)
 
     pagos_limpios = []
-    suma_montos_base = Decimal("0.00")      # suma de montos sin recargo
-    suma_recargos = Decimal("0.00")         # suma recargos por crédito
+    suma_montos_base = Decimal("0.00")  # suma de montos sin recargo
+    suma_recargos = Decimal("0.00")     # suma recargos por crédito
 
     for p in payments:
         tipo = (p.get("tipo") or "").strip()
@@ -1028,17 +1026,18 @@ def confirmar(request):
                 )
 
             confirmar_venta(venta)
-            # ✅ Por si confirmar_venta() recalcula y pisa el total:
-        venta.total = total_cobrar
-        venta.save(update_fields=["total"])
+
+            # Por si confirmar_venta() recalcula y pisa el total:
+            venta.total = total_cobrar
+            venta.save(update_fields=["total"])
 
     except ValidationError as e:
         return HttpResponse(str(e), status=400)
 
-    # ✅ Guardar venta para mostrar modal en la próxima carga de /caja/
+    # Guardar venta para mostrar modal post-confirm
     request.session["pos_last_sale_id"] = venta.id
 
-    # ✅ Reset total POS (carrito + pagos + token)
+    # Reset total POS (carrito + pagos + token)
     _cart_save(request, {})
     _payments_save(request, [])
     request.session["pos_confirm_token"] = str(uuid.uuid4())
@@ -1049,6 +1048,9 @@ def confirmar(request):
     return resp
 
 
+# ======================================================================
+# Ticket
+# ======================================================================
 
 @login_required
 def ticket(request, venta_id: int):
@@ -1084,7 +1086,7 @@ def ticket(request, venta_id: int):
         partes = [p for p in (base, color, talle) if p]
         return " - ".join(partes) if partes else (variante.sku or base or "Item")
 
-    # 🔥 pegamos el nombre “cliente” directo en cada item (lo más confiable)
+    # pegamos el nombre “cliente” directo en cada item (lo más confiable)
     for it in venta.items.all():
         it.nombre_cliente = build_nombre_cliente(it.variante)
 
@@ -1101,3 +1103,96 @@ def ticket(request, venta_id: int):
         "total_final": total_final,
         "auto_print": auto_print,
     })
+# ======================================================================
+# Compatibilidad: Endpoints viejos (pagos_add / pagos_del / pagos_set)
+# ======================================================================
+
+def _render_pagos_body_html(request) -> str:
+    """
+    Render legacy: si todavía tenés pantallas viejas que usan #pagos_body.
+    Si el template no existe, podés borrarlo o cambiarlo por el que uses.
+    """
+    ctx = _ctx_pagos_pos(request)
+    return render_to_string("caja/_pagos_body.html", ctx, request=request)
+
+
+@login_required
+@require_POST
+def pagos_add(request):
+    """
+    Endpoint viejo: agrega un pago y devuelve body + OOB.
+    """
+    total_base = _cart_total(_cart_get(request))
+    if total_base <= 0:
+        # si el carrito está vacío, solo refrescamos para no crear pagos basura
+        return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
+
+    payments = _payments_get(request) or []
+    payments.append(_payments_default())
+    _payments_save(request, payments)
+
+    return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
+
+
+@login_required
+@require_POST
+def pagos_del(request, idx: int):
+    """
+    Endpoint viejo: quita un pago por índice y devuelve body + OOB.
+    """
+    payments = _payments_get(request) or []
+    if 0 <= idx < len(payments):
+        payments.pop(idx)
+        _payments_save(request, payments)
+
+    return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
+
+
+@login_required
+@require_POST
+def pagos_set(request, idx: int):
+    """
+    Endpoint viejo: actualiza un pago por índice (misma lógica que el modal)
+    y devuelve body + OOB.
+    """
+    payments = _payments_get(request) or []
+    if not (0 <= idx < len(payments)):
+        return HttpResponse("Índice inválido", status=400)
+
+    p = payments[idx]
+
+    tipo = (request.POST.get("tipo") or p.get("tipo") or "CONTADO").strip()
+    p["tipo"] = tipo
+
+    p["monto"] = str(_parse_decimal_ar(request.POST.get("monto")))
+    p["referencia"] = (request.POST.get("referencia") or "").strip()
+
+    if tipo == "CREDITO":
+        tarjeta = (request.POST.get("tarjeta") or "").strip()
+        p["tarjeta"] = tarjeta
+
+        plan_id = (request.POST.get("plan_id") or "").strip()
+        p["plan_id"] = plan_id
+
+        if plan_id:
+            plan = PlanCuotas.objects.filter(id=int(plan_id), activo=True).first()
+            if plan:
+                p["cuotas"] = int(plan.cuotas)
+                p["recargo_pct"] = str(Decimal(str(plan.recargo_pct)).quantize(Decimal("0.01")))
+                p["tarjeta"] = plan.tarjeta
+        else:
+            try:
+                p["cuotas"] = int(request.POST.get("cuotas") or p.get("cuotas") or 1)
+            except Exception:
+                p["cuotas"] = 1
+            p["recargo_pct"] = "0.00"
+    else:
+        p["tarjeta"] = ""
+        p["plan_id"] = ""
+        p["cuotas"] = 1
+        p["recargo_pct"] = "0.00"
+
+    payments[idx] = p
+    _payments_save(request, payments)
+
+    return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))

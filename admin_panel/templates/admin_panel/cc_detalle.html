@@ -1,0 +1,134 @@
+{% extends "admin_panel/base.html" %}
+{% load core_extras %}
+{% block title %}Cuenta corriente{% endblock %}
+{% block header_title %}Cuenta corriente{% endblock %}
+
+{% block content %}
+  <div style="margin-bottom:12px;">
+    <a class="btn-flat" href="{% url 'admin_panel:cc_lista' %}">
+      <i class="material-icons left">arrow_back</i>Volver
+    </a>
+  </div>
+
+  <div class="row">
+    <div class="col s12 l5">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Cliente</span>
+          <p><b>DNI:</b> {{ cliente.dni }}</p>
+          <p><b>Nombre:</b> {{ cliente.apellido }}, {{ cliente.nombre }}</p>
+          <p><b>Teléfono:</b> {{ cliente.telefono|default:"-" }}</p>
+          <p><b>Dirección:</b> {{ cliente.direccion|default:"-" }}</p>
+
+          <p style="margin-top:12px;">
+            <b>Cuenta activa:</b> {% if cuenta.activa %}Sí{% else %}No{% endif %}
+          </p>
+
+          <p>
+            <b>Saldo:</b>
+            <span style="font-size:1.2rem; font-weight:700;">
+              {{ saldo|moneda_ar }}
+            </span>
+          </p>
+
+          <form method="post" action="{% url 'admin_panel:cc_toggle_activa' cuenta.id %}" style="margin-top:14px;">
+            {% csrf_token %}
+            {% if cuenta.activa %}
+              <button class="btn red" type="submit">
+                <i class="material-icons left">pause</i>Pausar CC
+              </button>
+            {% else %}
+              <button class="btn green" type="submit">
+                <i class="material-icons left">play_arrow</i>Reactivar CC
+              </button>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Registrar pago</span>
+
+          <form method="post" action="{% url 'admin_panel:cc_registrar_pago' cuenta.id %}">
+            {% csrf_token %}
+
+            <div class="input-field">
+              {{ form.monto }}
+              <label class="active">Monto</label>
+              {% for e in form.monto.errors %}<div class="red-text">{{ e }}</div>{% endfor %}
+            </div>
+
+            <div class="input-field">
+              {{ form.referencia }}
+              <label class="active">Referencia</label>
+              {% for e in form.referencia.errors %}<div class="red-text">{{ e }}</div>{% endfor %}
+            </div>
+
+            <div class="input-field">
+              {{ form.observacion }}
+              <label class="active">Observación</label>
+              {% for e in form.observacion.errors %}<div class="red-text">{{ e }}</div>{% endfor %}
+            </div>
+
+            <button class="btn" type="submit">
+              <i class="material-icons left">add</i>Registrar crédito
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col s12 l7">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Movimientos (últimos 200)</span>
+
+          <div class="responsive-table">
+            <table class="striped">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>Venta</th>
+                  <th>Ref</th>
+                  <th class="right-align">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in movimientos %}
+                  <tr>
+                    <td>{{ m.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ m.get_tipo_display }}</td>
+                    <td>
+                      {% if m.venta %}
+                        #{{ m.venta.id }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>{{ m.referencia|default:"-" }}</td>
+                    <td class="right-align">
+                      {% if m.tipo == "DEBITO" %}+{% else %}-{% endif %}
+                      {{ m.monto|moneda_ar:"" }}
+                    </td>
+                  </tr>
+                  {% if m.observacion %}
+                    <tr>
+                      <td colspan="5" class="grey-text" style="font-size:.9rem;">
+                        {{ m.observacion }}
+                      </td>
+                    </tr>
+                  {% endif %}
+                {% empty %}
+                  <tr><td colspan="5" class="grey-text">Sin movimientos.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

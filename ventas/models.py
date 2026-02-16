@@ -34,6 +34,14 @@ class Venta(models.Model):
 
     sucursal = models.ForeignKey(Sucursal, on_delete=models.PROTECT)
     fecha = models.DateTimeField(default=timezone.now)
+    cliente = models.ForeignKey(
+    "cuentas_corrientes.Cliente",
+    null=True,
+    blank=True,
+    on_delete=models.PROTECT,
+    related_name="ventas",
+    )
+
 
     estado = models.CharField(max_length=20, choices=Estado.choices, default=Estado.BORRADOR)
     medio_pago = models.CharField(max_length=30, choices=MedioPago.choices, default=MedioPago.EFECTIVO)

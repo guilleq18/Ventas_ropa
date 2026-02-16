@@ -1,11 +1,8 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
-from django.contrib import messages
 
-from .models import Venta, VentaItem
-from .services import confirmar_venta
-from django.contrib import admin
 from .models import Venta, VentaItem, VentaPago, PlanCuotas
+from .services import confirmar_venta
 
 
 @admin.register(PlanCuotas)
@@ -16,7 +13,6 @@ class PlanCuotasAdmin(admin.ModelAdmin):
     ordering = ("tarjeta", "cuotas")
 
 
-# (opcional) para ver pagos en admin de forma cómoda
 class VentaItemInline(admin.TabularInline):
     model = VentaItem
     extra = 0
@@ -27,20 +23,40 @@ class VentaPagoInline(admin.TabularInline):
     extra = 0
 
 
-
-
-class VentaItemInline(admin.TabularInline):
-    model = VentaItem
-    extra = 0
-
-
 @admin.register(Venta)
 class VentaAdmin(admin.ModelAdmin):
-    list_display = ("id", "sucursal", "fecha", "estado", "medio_pago", "total")
+    list_display = (
+        "id",
+        "sucursal",
+        "fecha",
+        "estado",
+        "medio_pago",
+        "cliente_dni",
+        "cliente_nombre",
+        "total",
+    )
     list_filter = ("estado", "sucursal", "medio_pago")
     date_hierarchy = "fecha"
-    inlines = [VentaItemInline]
+    search_fields = (
+        "id",
+        "cliente__dni",
+        "cliente__apellido",
+        "cliente__nombre",
+    )
+    list_select_related = ("sucursal", "cliente")
+
+    inlines = [VentaItemInline, VentaPagoInline]
     actions = ["accion_confirmar"]
+
+    def cliente_dni(self, obj):
+        return obj.cliente.dni if obj.cliente else "-"
+    cliente_dni.short_description = "DNI"
+
+    def cliente_nombre(self, obj):
+        if not obj.cliente:
+            return "-"
+        return f"{obj.cliente.apellido}, {obj.cliente.nombre}"
+    cliente_nombre.short_description = "Cliente"
 
     @admin.action(description="Confirmar ventas seleccionadas (descuenta stock)")
     def accion_confirmar(self, request, queryset):

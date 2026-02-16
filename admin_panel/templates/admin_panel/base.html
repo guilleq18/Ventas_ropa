@@ -38,6 +38,29 @@
       text-transform: uppercase;
       letter-spacing: .04em;
     }
+    /* === Modal centrado (compensa sidenav fijo en desktop) === */
+    .modal {
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      right: auto !important;
+      margin: 0 !important;
+    }
+
+    /* En pantallas grandes, mantenemos un ancho cómodo */
+    @media only screen and (min-width: 993px) {
+      .modal {
+        width: 60% !important;
+        max-width: 720px;
+      }
+    }
+
+    /* En mobile que use casi toda la pantalla */
+    @media only screen and (max-width: 992px) {
+      .modal {
+        width: 92% !important;
+      }
+    }
+
   </style>
 </head>
 
@@ -70,9 +93,9 @@
 
   <!-- Sidebar -->
   <ul id="admin-sidenav" class="sidenav sidenav-fixed">
-    <div class="brand">Sistema de Ventas</div>
+    <li class="brand">Sistema de Ventas</li>
 
-    <div class="menu-section">Principal</div>
+    <li class="menu-section">Principal</li>
     <li>
       <a href="{% url 'admin_panel:dashboard' %}">
         <i class="material-icons">dashboard</i>Dashboard
@@ -109,17 +132,28 @@
     <i class="material-icons">insights</i>Balances
   </a>
 </li>
+<li>
+  <a href="{% url 'admin_panel:cc_lista' %}">
+    <i class="material-icons">account_balance_wallet</i>Cuentas corrientes
+  </a>
+</li>
   </ul>
   
 
   <main>
     {% if messages %}
-      {% for message in messages %}
-        <div class="card-panel {% if message.tags %}{{ message.tags }}{% endif %}">
-          {{ message }}
-        </div>
-      {% endfor %}
+  {% for message in messages %}
+    {% if message.tags == "success" %}
+      <div class="card-panel green lighten-4 green-text text-darken-4">{{ message }}</div>
+    {% elif message.tags == "error" %}
+      <div class="card-panel red lighten-4 red-text text-darken-4">{{ message }}</div>
+    {% elif message.tags == "warning" %}
+      <div class="card-panel yellow lighten-4 brown-text text-darken-4">{{ message }}</div>
+    {% else %}
+      <div class="card-panel blue lighten-4 blue-text text-darken-4">{{ message }}</div>
     {% endif %}
+  {% endfor %}
+{% endif %}
 
     {% block content %}{% endblock %}
   </main>
@@ -129,6 +163,14 @@
       const sidenavs = document.querySelectorAll('.sidenav');
       M.Sidenav.init(sidenavs, {});
     });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      M.Sidenav.init(document.querySelectorAll('.sidenav'), {});
+      M.Modal.init(document.querySelectorAll('.modal'), {});
+      M.FormSelect.init(document.querySelectorAll('select'), {});
+    });
+
+
   </script>
 
   <!-- Material Icons -->

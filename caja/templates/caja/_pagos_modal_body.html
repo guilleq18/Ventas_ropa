@@ -1,0 +1,243 @@
+{# templates/caja/_pagos_modal_body.html #}
+{% load caja_extras %}
+
+
+
+{# ===== Header sticky (título + botón + totales fijos) ===== #}
+<div class="white"
+     style="position:sticky; top:0; z-index:10; padding:12px 0 10px; border-bottom:1px solid rgba(0,0,0,.08);">
+  <div class="row" style="margin:0;">
+    <div class="col s12">
+      <div class="card-panel" style="margin:0; padding:14px 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+
+          <div style="min-width:240px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <i class="material-icons teal-text" style="font-size:26px;">account_balance_wallet</i>
+              <h5 style="margin:0;">Formas de pago</h5>
+            </div>
+            <div class="grey-text" style="font-size:12px; margin-top:4px;">
+              Configurá los pagos. Al cerrar se aplican al detalle.
+            </div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px;">
+
+            
+
+            {# Totales en chips (más Materialize y legible) #}
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+              <span class="chip grey lighten-4" style="font-weight:600;">
+                Items: ${{ total_base|num_ar }}
+              </span>
+
+              <span class="chip amber lighten-5" style="font-weight:600;">
+                <i class="material-icons" style="font-size:16px; line-height:24px; vertical-align:middle;">percent</i>
+                Recargos: ${{ recargos|num_ar }}
+              </span>
+
+              <span class="chip teal lighten-5" style="font-weight:800;">
+                A cobrar: ${{ total_cobrar|num_ar }}
+              </span>
+
+              <span class="chip blue lighten-5" style="font-weight:700;">
+                Pagado: ${{ pagado|num_ar }}
+              </span>
+
+              <span class="chip red lighten-5" style="font-weight:800;">
+                Saldo: ${{ saldo|num_ar }}
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AQUI VA EL BOTON DE AGREGAR PAGO -->
+{# ===== Footer sticky (abajo del modal) ===== #}
+<div class="white"
+     style="position:sticky; bottom:0; z-index:10; padding:12px 0 10px; border-top:1px solid rgba(0,0,0,.08);">
+  <div class="row" style="margin:0;">
+    <div class="col s12">
+      <div class="card-panel" style="margin:0; padding:12px 16px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div>
+            <!-- acá iría tu título/subtítulo si querés -->
+          </div>
+
+          <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
+            {% if total_base|add:0 > 0 %}
+              <form
+                hx-post="{% url 'caja:pagos_add_modal' %}"
+                hx-target="#pago_modal_content"
+                hx-swap="innerHTML"
+                style="margin:0;"
+              >
+                {% csrf_token %}
+                <button type="submit" class="btn teal waves-effect waves-light">
+                  <i class="material-icons left">add</i>Agregar pago
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+{# ===== Body ===== #}
+<div id="pagos_modal_body" style="padding-top:12px; padding-bottom:8px;">
+  {% if total_base <= 0 %}
+    <div class="card-panel grey lighten-4" style="padding:12px 14px;">
+      <span class="grey-text text-darken-2" style="display:flex; gap:10px; align-items:center;">
+        <i class="material-icons">info</i>
+        Agregá productos al carrito.
+      </span>
+    </div>
+  {% else %}
+
+    {% if not payments %}
+      <div class="card-panel grey lighten-4" style="padding:12px 14px;">
+        <span class="grey-text text-darken-2" style="display:flex; gap:10px; align-items:center;">
+          <i class="material-icons">hourglass_empty</i>
+          No hay pagos cargados.
+        </span>
+      </div>
+    {% endif %}
+
+    {% for p in payments %}
+      <div class="card-panel" style="padding:14px; margin-bottom:12px; margin-left: 14px;margin-right: 14px;">
+        <div class="row" style="margin-bottom:0;">
+
+          {# ===== Form edición (auto-guardado) ===== #}
+          <form class="col s12 m10 pagos-select"
+                id="pago_form_{{ forloop.counter0 }}"
+                hx-post="{% url 'caja:pagos_set_modal' forloop.counter0 %}"
+                hx-target="#pago_modal_content"
+                hx-swap="innerHTML"
+                hx-trigger="
+                  change,
+                  keyup changed delay:2000ms from:input[name='monto'],
+                  keyup changed delay:2000ms from:input[name='referencia']
+                "
+                style="margin:0;">
+            {% csrf_token %}
+
+            <div class="row" style="margin-bottom:0;">
+              <div class="input-field col s12 m4" style="margin-top:0;">
+                <select name="tipo" {% if p.tipo_locked %}disabled{% endif %}>
+                  <option value="CONTADO" {% if p.tipo == "CONTADO" %}selected{% endif %}>Contado</option>
+                  <option value="DEBITO" {% if p.tipo == "DEBITO" %}selected{% endif %}>Débito</option>
+                  <option value="CREDITO" {% if p.tipo == "CREDITO" %}selected{% endif %}>Crédito</option>
+                  <option value="TRANSFERENCIA" {% if p.tipo == "TRANSFERENCIA" %}selected{% endif %}>Transferencia</option>
+                  <option value="QR" {% if p.tipo == "QR" %}selected{% endif %}>QR</option>
+                </select>
+                <label>Tipo</label>
+                {% if p.tipo_locked %}
+                  <small class="grey-text">Tipo bloqueado (quitá el pago para cambiarlo)</small>
+                {% endif %}
+              </div>
+
+              <div class="input-field col s12 m4" style="margin-top:0;">
+                <i class="material-icons prefix grey-text">attach_money</i>
+                <input type="text"
+                       name="monto"
+                       inputmode="decimal"
+                       placeholder="0,00"
+                       value="{{ p.monto|num_ar }}"
+                       style="font-weight:600;">
+                <label class="active">Monto</label>
+                <small class="grey-text">Ej: 12.345,67</small>
+              </div>
+
+              <div class="col s12 m4" style="padding-top:8px; text-align:right;">
+                {% if p.tipo == "CREDITO" %}
+                  <span class="chip amber lighten-5" style="margin-right:6px; font-weight:700;">
+                    Recargo: ${{ p.recargo_monto_calc|num_ar }}
+                  </span>
+                  <span class="chip teal lighten-5" style="font-weight:900;">
+                    Total: ${{ p.total_tarjeta_calc|num_ar }}
+                  </span>
+                {% else %}
+                  <span class="chip grey lighten-4" style="font-weight:700;">
+                    Sin recargo
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if p.tipo == "CREDITO" %}
+              <div class="row" style="margin:0;">
+                <div class="input-field col s12 m4" style="margin-top:0;">
+                  <i class="material-icons prefix grey-text">credit_card</i>
+                  <select name="tarjeta">
+                    <option value="" disabled {% if not p.tarjeta %}selected{% endif %}>Elegí tarjeta</option>
+                    {% for t in tarjetas %}
+                      <option value="{{ t }}" {% if p.tarjeta == t %}selected{% endif %}>{{ t }}</option>
+                    {% endfor %}
+                  </select>
+                  <label>Tarjeta</label>
+                </div>
+
+                <div class="col s12 m8" id="cuotas_wrap_{{ forloop.counter0 }}" style="padding-top:6px;">
+                  {% if p.tarjeta %}
+                    <div
+                      hx-get="{% url 'caja:pagos_cuotas' forloop.counter0 %}?tarjeta={{ p.tarjeta|urlencode }}"
+                      hx-trigger="load"
+                      hx-target="#cuotas_wrap_{{ forloop.counter0 }}"
+                      hx-swap="innerHTML">
+                    </div>
+                  {% else %}
+                    <div class="card-panel grey lighten-4" style="padding:10px 12px; margin:0;">
+                      <span class="grey-text text-darken-2" style="display:flex; gap:8px; align-items:center;">
+                        <i class="material-icons">info</i>
+                        Elegí tarjeta para ver cuotas
+                      </span>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            {% endif %}
+
+            {% if p.tipo == "TRANSFERENCIA" or p.tipo == "QR" %}
+              <div class="row" style="margin:0;">
+                <div class="input-field col s12" style="margin-top:0;">
+                  <i class="material-icons prefix grey-text">receipt</i>
+                  <input type="text" name="referencia" value="{{ p.referencia|default:'' }}">
+                  <label class="active">Referencia / Operación</label>
+                </div>
+              </div>
+            {% endif %}
+          </form>
+
+          {# ===== Quitar (form separado, NO anidado) ===== #}
+          <div class="col s12 m2" style="display:flex; justify-content:flex-end; align-items:flex-start;">
+            <form hx-post="{% url 'caja:pagos_del_modal' forloop.counter0 %}"
+                  hx-target="#pago_modal_content"
+                  hx-swap="innerHTML"
+                  style="margin:0;">
+              {% csrf_token %}
+              <button class="btn red waves-effect waves-light" type="submit">
+                <i class="material-icons left">delete</i>
+              </button>
+            </form>
+          </div>
+
+        </div>
+      </div>
+    {% endfor %}
+
+  {% endif %}
+</div>
+
