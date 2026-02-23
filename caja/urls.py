@@ -20,6 +20,7 @@ urlpatterns = [
     # =========================
     path("carrito/agregar/<int:variante_id>/", views.carrito_agregar, name="carrito_agregar"),
     path("carrito/qty/<int:variante_id>/", views.carrito_set_qty, name="carrito_set_qty"),
+    path("carrito/precio/<int:variante_id>/", views.carrito_set_precio, name="carrito_set_precio"),
     path("carrito/quitar/<int:variante_id>/", views.carrito_quitar, name="carrito_quitar"),
     path("carrito/vaciar/", views.carrito_vaciar, name="carrito_vaciar"),
 
@@ -49,4 +50,14 @@ urlpatterns = [
     # Pagos: acciones desde la tabla del card
     # =========================
     path("pagos/table/del/<int:idx>/", views.pagos_del_table, name="pagos_del_table"),
+    path("pagos/table/vaciar/", views.pagos_vaciar_table, name="pagos_vaciar_table"),
+
+    # =========================
+    # Pagos: Cuentas corrientes
+    # =========================
+    
+    path("cc/buscar/<int:idx>/", views.cc_buscar_clientes, name="cc_buscar_clientes"),
+    path("cc/pick/<int:idx>/<int:cliente_id>/", views.cc_pick_cliente_modal, name="cc_pick_cliente_modal"),
+
+
 ]

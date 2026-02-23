@@ -14,7 +14,7 @@
           <form class="col s12 pagos-select"
                 id="pago_form_{{ forloop.counter0 }}"
                 hx-post="{% url 'caja:pagos_set' forloop.counter0 %}"
-                hx-target="#pagos"
+                hx-target="#pagos_table"
                 hx-swap="innerHTML">
             {% csrf_token %}
 
@@ -54,8 +54,8 @@
               <div class="row" style="margin-bottom:0;">
 
                 <div class="input-field col s12 m4">
-                  <select name="tarjeta"
-                          onchange="document.getElementById('pago_form_{{ forloop.counter0 }}').requestSubmit();">
+                    <select name="tarjeta" class="tarjeta-select">
+                      
                     <option value="" disabled {% if not p.tarjeta %}selected{% endif %}>Elegí tarjeta</option>
                     {% for t in tarjetas %}
                       <option value="{{ t }}" {% if p.tarjeta == t %}selected{% endif %}>{{ t }}</option>
@@ -99,12 +99,16 @@
 
           </form>
 
+          
+
           <div class="col s12" style="display:flex; justify-content:flex-end; margin-top:8px;">
             <form hx-post="{% url 'caja:pagos_del' forloop.counter0 %}"
-                  hx-target="#pagos"
+                  hx-target="#pagos_table"
                   hx-swap="innerHTML">
               {% csrf_token %}
-              <button class="btn red" type="submit">Quitar</button>
+              <button class="btn red" type="submit" title="Quitar" aria-label="Quitar">
+                <i class="material-icons">delete</i>
+              </button>
             </form>
           </div>
 
@@ -113,9 +117,12 @@
     {% endfor %}
   </div>
 
-  <form hx-post="{% url 'caja:pagos_add' %}" hx-target="#pagos" hx-swap="innerHTML">
+  <form hx-post="{% url 'caja:pagos_add' %}" hx-target="#pagos_table" hx-swap="innerHTML">
     {% csrf_token %}
-    <button class="btn green">Agregar pago</button>
+      <button class="btn green darken-1" type="submit" style="padding:10px 14px; border-radius:8px; font-weight:700; box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+        <i class="material-icons left" aria-hidden="true">add</i>
+        Agregar forma de pago
+      </button>
   </form>
 
 {% endif %}

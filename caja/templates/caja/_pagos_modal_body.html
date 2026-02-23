@@ -1,9 +1,12 @@
 {# templates/caja/_pagos_modal_body.html #}
 {% load caja_extras %}
 
+<!--{# =========================================================
+   MODAL BODY (HTMX)
+   IMPORTANTE: siempre swap sobre #pago_modal_content
+   ========================================================= #}
 
-
-{# ===== Header sticky (título + botón + totales fijos) ===== #}
+{# ===== Header sticky (título + totales fijos) ===== #}-->
 <div class="white"
      style="position:sticky; top:0; z-index:10; padding:12px 0 10px; border-bottom:1px solid rgba(0,0,0,.08);">
   <div class="row" style="margin:0;">
@@ -12,20 +15,18 @@
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
 
           <div style="min-width:240px;">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <i class="material-icons teal-text" style="font-size:26px;">account_balance_wallet</i>
-              <h5 style="margin:0;">Formas de pago</h5>
-            </div>
-            <div class="grey-text" style="font-size:12px; margin-top:4px;">
-              Configurá los pagos. Al cerrar se aplican al detalle.
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(0,150,136,0.08);">
+                <i class="material-icons teal-text" style="font-size:22px;">account_balance_wallet</i>
+              </div>
+              <div>
+                <h4 style="margin:0; font-weight:700; font-size:18px;">Formas de pago</h4>
+                <div class="grey-text" style="font-size:12px; margin-top:4px;">Configurá los pagos. Al cerrar se aplican al detalle.</div>
+              </div>
             </div>
           </div>
 
           <div style="display:flex; flex-direction:column; align-items:flex-end; gap:10px;">
-
-            
-
-            {# Totales en chips (más Materialize y legible) #}
             <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
               <span class="chip grey lighten-4" style="font-weight:600;">
                 Items: ${{ total_base|num_ar }}
@@ -48,37 +49,38 @@
                 Saldo: ${{ saldo|num_ar }}
               </span>
             </div>
-
           </div>
+
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- AQUI VA EL BOTON DE AGREGAR PAGO -->
-{# ===== Footer sticky (abajo del modal) ===== #}
+<!--{# ===== Footer sticky (abajo del modal) - botón Agregar pago ===== #}-->
 <div class="white"
      style="position:sticky; bottom:0; z-index:10; padding:12px 0 10px; border-top:1px solid rgba(0,0,0,.08);">
   <div class="row" style="margin:0;">
     <div class="col s12">
       <div class="card-panel" style="margin:0; padding:12px 16px;">
         <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <div>
-            <!-- acá iría tu título/subtítulo si querés -->
+          <div class="grey-text" style="font-size:12px;">
+            Los cambios se guardan automáticamente.
           </div>
 
           <div style="margin-left:auto; display:flex; align-items:center; gap:8px;">
             {% if total_base|add:0 > 0 %}
-              <form
-                hx-post="{% url 'caja:pagos_add_modal' %}"
-                hx-target="#pago_modal_content"
-                hx-swap="innerHTML"
-                style="margin:0;"
-              >
+              <form hx-post="{% url 'caja:pagos_add_modal' %}"
+                    hx-target="#pago_modal_content"
+                    hx-swap="innerHTML"
+                    hx-sync="#pago_modal_content:queue"
+                    style="margin:0;">
                 {% csrf_token %}
-                <button type="submit" class="btn teal waves-effect waves-light">
-                  <i class="material-icons left">add</i>Agregar pago
+                <button type="submit"
+                        class="btn green darken-1 waves-effect waves-light"
+                        style="height:40px; line-height:40px; border-radius:8px; font-weight:700; display:inline-flex; align-items:center; gap:8px; padding:0 14px; box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+                  <i class="material-icons" aria-hidden="true" style="font-size:18px; line-height:1;">add</i>
+                  AGREGAR
                 </button>
               </form>
             {% endif %}
@@ -88,13 +90,6 @@
     </div>
   </div>
 </div>
-
-
-
-
-
-
-
 
 {# ===== Body ===== #}
 <div id="pagos_modal_body" style="padding-top:12px; padding-bottom:8px;">
@@ -117,21 +112,26 @@
     {% endif %}
 
     {% for p in payments %}
-      <div class="card-panel" style="padding:14px; margin-bottom:12px; margin-left: 14px;margin-right: 14px;">
+      <div class="card-panel" style="padding:14px; margin-bottom:12px; margin-left:14px; margin-right:14px;">
         <div class="row" style="margin-bottom:0;">
 
-          {# ===== Form edición (auto-guardado) ===== #}
+          <!--{# ===========================================================
+             FORM principal del pago (NO usar "change" global)
+             =========================================================== #}-->
           <form class="col s12 m10 pagos-select"
-                id="pago_form_{{ forloop.counter0 }}"
-                hx-post="{% url 'caja:pagos_set_modal' forloop.counter0 %}"
-                hx-target="#pago_modal_content"
-                hx-swap="innerHTML"
-                hx-trigger="
-                  change,
-                  keyup changed delay:2000ms from:input[name='monto'],
-                  keyup changed delay:2000ms from:input[name='referencia']
-                "
-                style="margin:0;">
+            id="pago_form_{{ forloop.counter0 }}"
+            hx-post="{% url 'caja:pagos_set_modal' forloop.counter0 %}"
+            hx-target="#pago_modal_content"
+            hx-swap="innerHTML"
+            hx-trigger="
+              change from:select,
+              change from:input[name='monto'],
+              blur from:input[name='monto'],
+              change from:input[name='referencia'],
+              blur from:input[name='referencia']
+            "
+            style="margin:0;">
+
             {% csrf_token %}
 
             <div class="row" style="margin-bottom:0;">
@@ -142,6 +142,9 @@
                   <option value="CREDITO" {% if p.tipo == "CREDITO" %}selected{% endif %}>Crédito</option>
                   <option value="TRANSFERENCIA" {% if p.tipo == "TRANSFERENCIA" %}selected{% endif %}>Transferencia</option>
                   <option value="QR" {% if p.tipo == "QR" %}selected{% endif %}>QR</option>
+                  <option value="CUENTA_CORRIENTE" {% if p.tipo == "CUENTA_CORRIENTE" %}selected{% endif %}>
+                    Cuenta corriente{% if p.tipo == "CUENTA_CORRIENTE" and p.cc_label %} — {{ p.cc_label }}{% endif %}
+                  </option>
                 </select>
                 <label>Tipo</label>
                 {% if p.tipo_locked %}
@@ -177,6 +180,78 @@
               </div>
             </div>
 
+            <!--{# ==========================
+               Cuenta corriente (BUSCAR CLIENTE)
+               ========================== #}-->
+            {% if p.tipo == "CUENTA_CORRIENTE" %}
+              <div class="row" style="margin:0;">
+
+                <div class="input-field col s12 m6" style="margin-top:0;">
+                  <i class="material-icons prefix grey-text">person_search</i>
+
+                  {# Solo búsqueda (GET). NO hx-post acá. #}
+                  <input type="text"
+                         name="q"
+                         autocomplete="off"
+                         inputmode="numeric"
+                         placeholder="DNI (solo números)"
+                         value="{{ p.cc_q|default:'' }}"
+                         onkeydown="if(event.key==='Enter'){event.preventDefault();}"
+
+                         hx-get="{% url 'caja:cc_buscar_clientes' forloop.counter0 %}"
+                         hx-trigger="keyup changed delay:300ms"
+                         hx-target="#cc_results_{{ forloop.counter0 }}"
+                         hx-swap="innerHTML">
+                  <label class="active">Buscar cliente</label>
+                  <small class="grey-text">Se busca mientras escribís (no hace falta salir del campo).</small>
+                </div>
+
+                <div class="col s12 m6" style="padding-top:10px;">
+                  {% if p.cc_cliente_nombre %}
+                    <span class="chip" style="font-weight:700;">
+                      {{ p.cc_cliente_nombre }} ({{ p.cc_cliente_dni }})
+                    </span>
+
+                    {% if p.cc_ok %}
+                      <div class="grey-text" style="font-size:12px; margin-top:6px;">
+                        Saldo actual: <strong>${{ p.cc_saldo|num_ar }}</strong>
+                      </div>
+                    {% else %}
+                      <div class="red-text" style="font-size:12px; margin-top:6px;">
+                        El cliente no tiene cuenta corriente activa.
+                      </div>
+                    {% endif %}
+
+                    {# NO anidar forms: botón HTMX que limpia selección #}
+                    <button type="button"
+                            class="btn-flat"
+                            title="Quitar cliente"
+                            aria-label="Quitar cliente"
+                            style="margin-top:6px;"
+                            hx-post="{% url 'caja:pagos_set_modal' forloop.counter0 %}"
+                            hx-target="#pago_modal_content"
+                            hx-swap="innerHTML"
+                            hx-sync="#pago_modal_content:queue"
+                            hx-include="#pago_form_{{ forloop.counter0 }} input[name='csrfmiddlewaretoken'], #pago_form_{{ forloop.counter0 }} input[name='monto'], #pago_form_{{ forloop.counter0 }} input[name='referencia']"
+                            hx-vals='{"tipo":"CUENTA_CORRIENTE","cc_cliente_id":"","cc_q":""}'>
+                      <i class="material-icons">delete</i>
+                    </button>
+                  {% else %}
+                    <div class="grey-text" style="font-size:12px;">
+                      Elegí un cliente para debitar la venta a cuenta corriente.
+                    </div>
+                  {% endif %}
+                </div>
+
+              </div>
+
+              {# Resultados de búsqueda #}
+              <div id="cc_results_{{ forloop.counter0 }}"></div>
+            {% endif %}
+
+           <!-- {# ==========================
+               Crédito
+               ========================== #}-->
             {% if p.tipo == "CREDITO" %}
               <div class="row" style="margin:0;">
                 <div class="input-field col s12 m4" style="margin-top:0;">
@@ -210,6 +285,9 @@
               </div>
             {% endif %}
 
+           <!-- {# ==========================
+               Transferencia / QR
+               ========================== #}-->
             {% if p.tipo == "TRANSFERENCIA" or p.tipo == "QR" %}
               <div class="row" style="margin:0;">
                 <div class="input-field col s12" style="margin-top:0;">
@@ -219,13 +297,15 @@
                 </div>
               </div>
             {% endif %}
+
           </form>
 
-          {# ===== Quitar (form separado, NO anidado) ===== #}
+          {# ===== Quitar pago (form separado, NO anidado) ===== #}
           <div class="col s12 m2" style="display:flex; justify-content:flex-end; align-items:flex-start;">
             <form hx-post="{% url 'caja:pagos_del_modal' forloop.counter0 %}"
                   hx-target="#pago_modal_content"
                   hx-swap="innerHTML"
+                  hx-sync="#pago_modal_content:queue"
                   style="margin:0;">
               {% csrf_token %}
               <button class="btn red waves-effect waves-light" type="submit">
@@ -240,4 +320,3 @@
 
   {% endif %}
 </div>
-

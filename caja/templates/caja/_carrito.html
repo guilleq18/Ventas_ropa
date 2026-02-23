@@ -8,11 +8,12 @@
   <table class="highlight responsive-table" style="font-size:13px;">
     <thead>
       <tr>
-        <th style="width:42%;">Producto</th>
-        <th style="width:16%;">Stock</th>
-        <th style="width:22%;">Cant.</th>
+        <th style="width:36%;">Producto</th>
+        <th style="width:12%;">Stock</th>
+        <th style="width:16%;">Cant.</th>
+        <th style="width:18%;">Precio</th>
         <th class="right-align" style="width:12%;">Subtotal</th>
-        <th class="right-align" style="width:8%;">Acción</th>
+        <th class="right-align" style="width:6%;">Acción</th>
       </tr>
     </thead>
 
@@ -33,16 +34,18 @@
           </td>
 
           <td style="padding-top:10px; padding-bottom:10px;">
-            {% if st|add:0 <= 0 %}
-              <span class="chip red lighten-4 red-text text-darken-4"
-                    style="height:24px; line-height:24px; font-size:12px;">
-                Sin stock
-              </span>
-            {% else %}
-              <span class="chip green lighten-5 green-text text-darken-2"
-                    style="height:24px; line-height:24px; font-size:12px;">
-                {{ st }}
-              </span>
+            {% if not permitir_sin_stock %}
+              {% if st|add:0 <= 0 %}
+                <span class="chip red lighten-4 red-text text-darken-4"
+                      style="height:24px; line-height:24px; font-size:12px;">
+                  Sin stock
+                </span>
+              {% else %}
+                <span class="chip green lighten-5 green-text text-darken-2"
+                      style="height:24px; line-height:24px; font-size:12px;">
+                  {{ st }}
+                </span>
+              {% endif %}
             {% endif %}
           </td>
 
@@ -50,7 +53,8 @@
             <form hx-post="{% url 'caja:carrito_set_qty' it.variante.id %}"
                   hx-target="#carrito_body"
                   hx-swap="innerHTML"
-                  hx-trigger="change from:input[name='qty'], keyup changed delay:350ms from:input[name='qty']"
+                  hx-trigger="input changed delay:180ms, change"
+                  hx-sync="#carrito_body:replace"
                   style="margin:0; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
               {% csrf_token %}
               <input type="number"
@@ -60,6 +64,20 @@
                      style="max-width:78px; height:32px; margin:0;"
                      {% if st|add:0 > 0 %}max="{{ st }}"{% endif %}>
             </form>
+          </td>
+
+          <td style="padding-top:10px; padding-bottom:10px;">
+            {% if permitir_cambiar_precio_venta %}
+              <form hx-post="{% url 'caja:carrito_set_precio' it.variante.id %}"
+                    hx-target="#carrito_body"
+                    hx-swap="innerHTML"
+                    style="margin:0; display:flex; align-items:center;">
+                {% csrf_token %}
+                <input type="text" name="precio" value="{{ it.precio }}" style="max-width:120px; height:32px; margin:0;" onchange="this.form.requestSubmit();">
+              </form>
+            {% else %}
+              <div style="height:32px; display:flex; align-items:center;">${{ it.precio|num_ar }}</div>
+            {% endif %}
           </td>
 
           <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">
@@ -72,8 +90,8 @@
                   hx-swap="innerHTML"
                   style="margin:0;">
               {% csrf_token %}
-              <button class="btn-small red" type="submit" style="height:32px; line-height:32px;">
-                Quitar
+              <button class="btn-small red" type="submit" style="height:32px; line-height:32px;" title="Quitar" aria-label="Quitar">
+                <i class="material-icons" style="font-size:18px; line-height:32px;">delete</i>
               </button>
             </form>
           </td>

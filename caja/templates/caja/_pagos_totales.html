@@ -3,25 +3,34 @@
 
 
 <div class="row" style="margin:0;">
-  <div class="col s12" style="display:flex; gap:14px; flex-wrap:wrap; align-items:center;">
-    <span class="grey-text text-darken-2">
-      Total: <strong>${{ total_base|num_ar }}</strong>
-    </span>
+  <div class="col s12">
+    <div style="display:flex; flex-direction:column; gap:8px; border:1px solid rgba(0,0,0,.08); border-radius:8px; padding:10px 12px; background:#fafafa;">
 
-    <span class="grey-text text-darken-2">
-      Recargos: <strong>${{ recargos|num_ar }}</strong>
-    </span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="grey-text text-darken-2" style="font-size:13px;">Total</div>
+        <div style="font-weight:600; font-size:14px;">${{ total_base|num_ar }}</div>
+      </div>
 
-    <span class="grey-text text-darken-2">
-      Total + Recargos: <strong>${{ total_cobrar|num_ar }}</strong>
-    </span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="grey-text text-darken-2" style="font-size:13px;">Recargos</div>
+        <div style="font-weight:600; font-size:14px;">${{ recargos|num_ar }}</div>
+      </div>
 
-    <span class="grey-text text-darken-2">
-      Pagado Sin Recargo: <strong>${{ pagado|num_ar }}</strong>
-    </span>
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:7px 10px; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:6px;">
+        <div class="grey-text text-darken-2" style="font-size:13px;">Total a cobrar</div>
+        <div style="font-weight:700; font-size:18px; color:#000;">${{ total_cobrar|num_ar }}</div>
+      </div>
 
-    <span class="grey-text text-darken-2">
-      Restante Sin recargo: <strong>${{ saldo|num_ar }}</strong>
-    </span>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="grey-text text-darken-2" style="font-size:13px;">Pagado</div>
+        <div style="font-weight:600; font-size:14px;">${{ pagado|num_ar }}</div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; padding-top:4px; border-top:1px dashed rgba(0,0,0,.08);">
+        <div class="grey-text text-darken-2" style="font-size:13px;">Saldo</div>
+        <div style="font-weight:700; font-size:14px;">${{ saldo|num_ar }}</div>
+      </div>
+
+    </div>
   </div>
 </div>

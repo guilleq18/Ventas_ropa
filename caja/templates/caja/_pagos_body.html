@@ -81,7 +81,9 @@
                       hx-swap="innerHTML"
                       style="margin:0;">
                   {% csrf_token %}
-                  <button class="btn-flat red-text" type="submit">Quitar</button>
+                  <button class="btn-flat red-text" type="submit" title="Quitar" aria-label="Quitar">
+                    <i class="material-icons">delete</i>
+                  </button>
                 </form>
               </td>
             </tr>

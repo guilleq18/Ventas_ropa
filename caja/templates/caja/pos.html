@@ -68,18 +68,132 @@
       flex-wrap:wrap;
       justify-content:flex-end;
     }
+    .pos-scan-input{
+      width: 240px;
+      max-width: 100%;
+      height: 36px;
+      padding: 0 10px;
+      border: 1px solid #cfd8dc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      background: #fff;
+    }
+
+    /* Header de carrito: mejor adaptación en anchos intermedios */
+    .card-carrito .card-head-actions{
+      width: 100%;
+      justify-content: flex-start;
+    }
+    .card-carrito .card-head-actions #btn_open_buscar{
+      margin-right: 0 !important;
+      flex: 0 0 auto;
+    }
+    .card-carrito .card-head-actions .pos-scan-input{
+      flex: 1 1 240px;
+      min-width: 190px;
+    }
+    .card-carrito .card-head-actions form{
+      margin: 0;
+      flex: 0 0 auto;
+    }
+    .card-pagos .card-head-actions{
+      width: 100%;
+      justify-content: flex-start;
+      gap: 8px;
+    }
+    .card-pagos .card-head-actions form{
+      margin: 0;
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 992px){
+      .card-carrito .card-head-row{
+        align-items: flex-start;
+      }
+      .card-carrito .card-head-actions{
+        gap: 8px;
+      }
+      .card-carrito .card-head-actions .pos-scan-input{
+        flex-basis: 100%;
+        min-width: 0;
+        width: 100%;
+      }
+
+      .card-pagos .card-head-row{
+        align-items: flex-start;
+      }
+      .card-pagos .card-head-actions{
+        width: 100%;
+      }
+      .card-pagos .card-head-actions form{
+        flex: 1 1 auto;
+      }
+      .card-pagos .card-head-actions form button{
+        width: 100%;
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .pos-sticky .controls{
+        align-items: flex-start;
+      }
+      .pos-sticky .left{
+        width: 100%;
+        gap: 8px;
+      }
+      .pos-sticky .left > *{
+        flex: 0 0 auto;
+      }
+      .pos-sticky .right{
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .pos-sticky .right .btn-large{
+        width: 100%;
+      }
+    }
 
     @media (min-width: 601px){
-      .card-search{ height: calc(100vh - 220px); }
-      .card-carrito{ height: calc((100vh - 240px) * 0.45); }
-      .card-pagos{ height: calc((100vh - 240px) * 0.55); }
+      /* mantener la misma altura vertical para cada card */
+      .card-carrito{ height: calc(100vh - 220px); }
+      .card-pagos{ height: calc(100vh - 220px); }
     }
 
     @media (max-width: 600px){
-      .card-search, .card-carrito, .card-pagos{ height:auto; }
-      .card-search .card-body{ max-height: 300px; }
+      .card-carrito, .card-pagos{ height:auto; }
       .card-carrito .card-body{ max-height: 260px; }
       .card-pagos .card-body{ max-height: 340px; }
+      .card-carrito .card-head-actions{
+        width: 100%;
+      }
+      .card-carrito .card-head-actions #btn_open_buscar,
+      .card-carrito .card-head-actions form{
+        width: 100%;
+      }
+      .card-carrito .card-head-actions form button{
+        width: 100%;
+      }
+      .card-carrito .card-head-actions .pos-scan-input{
+        width: 100%;
+        flex-basis: 100%;
+      }
+      .card-pagos .card-head-actions{
+        width: 100%;
+      }
+      .card-pagos .card-head-actions form{
+        width: 100%;
+      }
+      .card-pagos .card-head-actions form button{
+        width: 100%;
+      }
+      .pos-sticky .left{
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .pos-sticky .left .chip{
+        margin: 0;
+      }
     }
 
     /* Selects */
@@ -206,6 +320,89 @@
     @media (max-width: 1100px){
       #nav_clock{ display:none; }
     }
+    /* =======================
+       Buscar modal styles — estética
+    ======================= */
+    /* Contenedor del modal centrado y con ancho más contenido */
+    #buscar_modal.modal{
+      max-width: 900px;
+      width: 85% !important;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(15,23,42,0.18);
+      overflow: visible !important;
+    }
+
+    /* Hacemos que el contenido del modal sea transparente y dejamos la tarjeta como el visual principal */
+    #buscar_modal .modal-content{
+      overflow: hidden !important;
+      padding: 0;
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Card interior: borde suave, esquinas y recorte */
+    #buscar_modal .card.pos-card{
+      margin: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: none;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+
+    /* Encabezado fijo y con padding uniforme */
+    #buscar_modal .card-head{
+      background: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      padding: 14px 16px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+
+    #buscar_modal .card-head .card-title{ margin:0; font-size:18px; }
+
+    /* Input y espacio alrededor */
+    #buscar_modal .input-field{ margin: 0; padding: 0 16px 8px 16px; background: #fff; }
+
+    /* Solo el cuerpo de resultados es scrollable */
+    #buscar_modal .card-body{
+      overflow-y: auto !important;
+      max-height: calc(70vh - 120px);
+      padding: 8px 16px 16px 16px;
+      background: #fff;
+    }
+
+    /* Ajustes de items para una lectura más clara */
+    #buscar_modal .collection-item{ padding: 10px 12px; }
+    #buscar_modal .select-wrapper input.select-dropdown{ padding-left:8px; }
+
+    /* Footer del modal alineado al modal de pagos */
+    #buscar_modal .modal-footer{
+      background: #fff;
+      border-top: 1px solid rgba(0,0,0,.08);
+      padding: 10px 24px;
+    }
+    #buscar_modal_scroll{
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+    }
+    .pos-shell-card{
+      margin: 0;
+      padding: 14px 14px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,0,0,.06);
+      box-shadow: 0 4px 16px rgba(15,23,42,0.06);
+      background: #f8fafc;
+    }
+    .pos-shell-card > .row{ margin-bottom: 0; }
+    .pos-shell-card .pos-sticky{ margin-top: 6px; }
+    @media (max-width: 600px){
+      .pos-shell-card{ padding: 10px 10px 8px; }
+    }
+    /* POS container más ancho para aprovechar espacio lateral en pantallas grandes */
+    .pos-container{ max-width:1400px; }
   </style>
 </head>
 
@@ -281,43 +478,12 @@
     <li><a href="/admin/logout/"><i class="material-icons">logout</i>Salir</a></li>
   </ul>
 
-  <div class="container" style="margin-top:18px;">
-    <div class="row">
+  <div class="container pos-container" style="margin-top:18px;">
+    <div class="card pos-shell-card">
+      <div class="row">
 
-      <!-- IZQ: Buscar -->
-      <div class="col s12 m6">
-        <div class="card pos-card card-search">
-          <div class="card-content">
-
-            <div class="card-head sticky-head">
-              <span class="card-title">Buscar (SKU)</span>
-
-              <div class="input-field" style="margin-bottom:0;">
-                <input id="q" name="q" type="text"
-                       autocomplete="off"
-                       placeholder="Ej: REM-BAS-M-NEG o Remera o 779..."
-                       hx-get="{% url 'caja:buscar' %}"
-                       hx-trigger="keyup changed delay:300ms"
-                       hx-target="#resultados"
-                       hx-swap="innerHTML">
-                <label for="q">SKU / nombre / código de barras</label>
-              </div>
-            </div>
-
-            <div class="card-body" id="buscar_scroll">
-              <div id="resultados">
-                {% include "caja/_resultados.html" with results=None %}
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-      <!-- DER: Carrito + Pagos -->
-      <div class="col s12 m6">
-
-        <!-- Carrito -->
+      <!-- Columna 1: Carrito -->
+      <div class="col s12 m6 l7">
         <div class="card pos-card card-carrito">
           <div class="card-content">
 
@@ -326,9 +492,21 @@
                 <span class="card-title" style="margin:0;">Carrito</span>
 
                 <div class="card-head-actions">
-                  <span class="grey-text text-darken-1">
-                    Total Items: $<strong id="total_cobrar_card">{{ total_cobrar|num_ar }}</strong>
-                  </span>
+
+                  <button id="btn_open_buscar" type="button" class="btn blue darken-1 waves-effect waves-light" style="margin-right:8px;">
+                    <i class="material-icons left">search</i>Buscar
+                  </button>
+
+                  <input id="scan_reader_input"
+                         type="text"
+                         class="browser-default pos-scan-input"
+                         autocomplete="off"
+                         autocapitalize="off"
+                         spellcheck="false"
+                         inputmode="none"
+                         placeholder="Escanear código (lector)"
+                         aria-label="Escaneo rápido por lector de código de barras"
+                         title="Solo lecturas por lector (rápidas + Enter)">
 
                   <form hx-post="{% url 'caja:carrito_vaciar' %}"
                         hx-target="#carrito_body"
@@ -351,8 +529,10 @@
 
           </div>
         </div>
+      </div>
 
-        <!-- Pagos (CARD COMPLETA) -->
+      <!-- Columna 2: Pagos -->
+      <div class="col s12 m6 l5">
         <div class="card pos-card card-pagos">
           <div class="card-content">
 
@@ -368,19 +548,30 @@
                         style="margin:0;">
                     {% csrf_token %}
                     <button type="button"
-                            class="btn teal waves-effect waves-light"
+                            class="btn green darken-1 waves-effect waves-light"
                             hx-post="{% url 'caja:pagos_modal_open' %}"
                             hx-target="#pago_modal_content"
                             hx-swap="innerHTML">
-                      Agregar forma de pago
+                      <i class="material-icons left">add</i>AGREGAR
                     </button>
 
+                  </form>
+
+                  <form hx-post="{% url 'caja:pagos_vaciar_table' %}"
+                        hx-swap="none"
+                        style="margin:0;">
+                    {% csrf_token %}
+                    <button class="btn red lighten-1 waves-effect waves-light" type="submit">
+                      Vaciar
+                    </button>
                   </form>
                 </div>
               </div>
 
-              <div id="pagos_totales" style="margin-top:6px;">
-                {% include "caja/_pagos_totales.html" %}
+              <div style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(0,0,0,.08);">
+                <div id="pagos_totales" style="margin-top:0;">
+                  {% include "caja/_pagos_totales.html" %}
+                </div>
               </div>
             </div>
 
@@ -392,50 +583,137 @@
 
           </div>
         </div>
+      </div>
 
-      </div><!-- /col der -->
+      </div><!-- /row -->
 
-    </div><!-- /row -->
+      <!-- Barra sticky inferior (Confirmación) -->
+      <div class="card pos-sticky">
+        <div class="card-content">
+          <form
+            hx-post="{% url 'caja:confirmar' %}"
+            hx-target="#confirm_res"
+            hx-swap="innerHTML"
+            hx-target-error="#confirm_res"
+          >
+            {% csrf_token %}
+            <input id="confirm_token_input" type="hidden" name="confirm_token" value="{{ confirm_token }}">
 
-    <!-- Barra sticky inferior (Confirmación) -->
-    <div class="card pos-sticky">
-      <div class="card-content">
-        <form
-          hx-post="{% url 'caja:confirmar' %}"
-          hx-target="#confirm_res"
-          hx-swap="innerHTML"
-          hx-target-error="#confirm_res"
-        >
-          {% csrf_token %}
-          <input id="confirm_token_input" type="hidden" name="confirm_token" value="{{ confirm_token }}">
+            <div class="controls">
+              <div class="left">
+                <span class="grey-text text-darken-1">Sucursal</span>
+                <div class="chip sucursal-chip">{{ sucursal.nombre }}</div>
 
-          <div class="controls">
-            <div class="left">
-              <span class="grey-text text-darken-1">Sucursal</span>
-              <div class="chip sucursal-chip">{{ sucursal.nombre }}</div>
+                <span class="grey-text text-darken-1">
+                  Total a cobrar: $<strong id="total_cobrar_confirm">{{ total_cobrar|num_ar }}</strong>
+                </span>
+              </div>
 
-              <span class="grey-text text-darken-1">
-                Total a cobrar: $<strong id="total_cobrar_confirm">{{ total_cobrar|num_ar }}</strong>
-              </span>
+              <div class="right">
+                <button class="btn-large waves-effect waves-light green touch-btn" type="submit">
+                  Confirmar venta
+                </button>
+              </div>
             </div>
+          </form>
 
-            <div class="right">
-              <button class="btn-large waves-effect waves-light green touch-btn" type="submit">
-                Confirmar venta
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <div id="confirm_res" style="margin-top:10px;"></div>
+          <div id="confirm_res" style="margin-top:10px;"></div>
+        </div>
       </div>
     </div>
 
   </div><!-- /container -->
 
-  {# =======================
+  <!-- Modal Buscar (mejorado) -->
+<div id="buscar_modal" class="modal modal-fixed-footer">
+  <!-- Header sticky -->
+  <div class="modal-content" style="padding-top:0;">
+    <div class="white"
+         style="position:sticky; top:0; z-index:10; padding:12px 0 10px; border-bottom:1px solid rgba(0,0,0,.08);">
+      <div class="row" style="margin:0;">
+        <div class="col s12">
+          <div class="card-panel" style="margin:0; padding:14px 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+              <div style="min-width:240px;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <div style="width:44px; height:44px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(0,150,136,0.08);">
+                    <i class="material-icons teal-text" style="font-size:22px;">search</i>
+                  </div>
+                  <div>
+                    <h4 style="margin:0; font-weight:700; font-size:18px;">Buscador de productos</h4>
+                    <div class="grey-text" style="font-size:12px; margin-top:4px;">Encontrá variantes por SKU, nombre o código de barras.</div>
+                  </div>
+                </div>
+              </div>
+
+              <a href="#!" class="modal-close btn-flat" title="Cerrar" style="padding:0 10px;">
+                <i class="material-icons">close</i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="white"
+         style="position:sticky; top:94px; z-index:9; padding:0 0 10px;">
+      <div class="row" style="margin:0;">
+        <div class="col s12">
+          <div class="card-panel" style="margin:0; padding:12px 16px;">
+            <div class="input-field" style="margin:0; background:#fff; border:1px solid rgba(0,0,0,.10); border-radius:10px; padding:4px 12px 0 12px; position:relative;">
+              <i class="material-icons prefix teal-text text-darken-1">search</i>
+
+              <!-- ✅ ID único (evita conflicto con el input principal del POS) -->
+              <input id="q_modal" name="q" type="text"
+                     autocomplete="off"
+                     inputmode="search"
+                     placeholder="SKU, nombre o código de barras…"
+                     hx-get="{% url 'caja:buscar' %}"
+                     hx-trigger="keyup changed delay:250ms"
+                     hx-target="#buscar_modal_resultados"
+                     hx-swap="innerHTML"
+                     hx-sync="#buscar_modal:queue"
+                     hx-indicator="#buscar_modal_spinner">
+
+              <!-- Botón limpiar -->
+              <a href="#!" id="q_modal_clear"
+                 class="btn-flat"
+                 style="position:absolute; right:8px; top:4px; height:48px; line-height:48px;"
+                 title="Limpiar">
+                <i class="material-icons grey-text">backspace</i>
+              </a>
+            </div>
+
+            <!-- Indicador (spinner) -->
+            <div id="buscar_modal_spinner" class="progress" style="margin:6px 0 0; display:none;">
+              <div class="indeterminate"></div>
+            </div>
+
+            <div class="grey-text" style="font-size:12px; margin-top:8px;">
+              Tip: podés pegar el código o escanear con lector USB.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body (scroll) -->
+    <div id="buscar_modal_scroll" style="padding-top:12px;">
+      <div id="buscar_modal_resultados" style="padding:0 16px 12px;">
+        {% include "caja/_resultados.html" with results=None %}
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <a href="#!" class="btn green darken-1 waves-effect waves-light modal-close">
+      <i class="material-icons left">check</i>Aplicar
+    </a>
+  </div>
+</div>
+  <!--{# =======================
      Modal Pagos
-  ======================= #}
+  ======================= #}-->
     <div id="pago_modal" class="modal modal-fixed-footer">
     <div class="modal-content" id="pago_modal_content">
       <!-- HTMX inyecta SOLO el body acá -->
@@ -450,9 +728,9 @@
     </div>
   </div>
 
-  {# =======================
+  <!--{# =======================
      Modal Venta (post-confirm)
-  ======================= #}
+  ======================= #}-->
   {% if last_sale %}
     <div id="venta_modal" class="modal modal-fixed-footer">
       <div class="modal-content">
@@ -509,10 +787,15 @@
                   </div>
                 {% endif %}
 
-                {% if p.referencia %}
-                  <div class="grey-text" style="font-size:12px;">Ref: {{ p.referencia|num_ar }}</div>
+                
+
+                {% if p.tipo == "CUENTA_CORRIENTE" and p.referencia %}
+                  <div class="grey-text" style="font-size:10px;">
+                    {{ p.referencia|cut:"Cuenta corriente — "|cut:"Cuenta corriente - " }}
+                  </div>
+                {% elif p.referencia %}
+                  <div class="grey-text" style="font-size:10px;">Ref: {{ p.referencia }}</div>
                 {% endif %}
-              </div>
 
               <div style="text-align:right; white-space:nowrap;">
                 <strong>${{ p.monto|num_ar }}</strong>
@@ -612,6 +895,50 @@
         M.Modal.init(pagoModalEl, { dismissible:true });
       }
 
+      // Modal Buscar: init + focus + limpiar + botón abrir
+      const buscarModalEl = document.getElementById('buscar_modal');
+      if (buscarModalEl && window.M && M.Modal) {
+        M.Modal.init(buscarModalEl, {
+          dismissible: true,
+          onOpenStart: () => {
+            setTimeout(() => {
+              const q = document.getElementById('q_modal');
+              if (q) q.focus();
+            }, 50);
+          }
+        });
+      }
+
+      const openBuscarBtn = document.getElementById('btn_open_buscar');
+      if (openBuscarBtn) {
+        openBuscarBtn.addEventListener('click', function () {
+          if (!buscarModalEl || !window.M || !M.Modal) return;
+          const inst = M.Modal.getInstance(buscarModalEl) || M.Modal.init(buscarModalEl, { dismissible:true });
+          inst.open();
+        });
+      }
+
+      const clearBtn = document.getElementById('q_modal_clear');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          const q = document.getElementById('q_modal');
+          if (!q) return;
+          q.value = '';
+          q.focus();
+          // opcional: limpiar resultados al limpiar input (si querés)
+          // document.getElementById('buscar_modal_resultados').innerHTML = '';
+        });
+      }
+
+    // Si HTMX reinyecta el contenido del modal en algún momento, re-enfocá
+    document.body.addEventListener('htmx:afterSwap', function(evt) {
+      if (evt.target && evt.target.id === 'buscar_modal_resultados') {
+        const wrap = document.getElementById('buscar_modal_scroll');
+        if (wrap) wrap.scrollTop = 0;
+      }
+    });
+
       // Modal venta
       const ventaModalEl = document.getElementById('venta_modal');
       if (ventaModalEl && window.M && M.Modal) {
@@ -626,14 +953,38 @@
         window.addEventListener("resize", centerVentaModal);
       }
 
-      // Enter en búsqueda => scan_add
-      const input = document.getElementById("q");
-      if (input) {
-        input.addEventListener("keydown", (e) => {
+      // Barra rápida de lector (solo acepta ráfagas de teclas típicas de escáner + Enter)
+      const scanReaderInput = document.getElementById("scan_reader_input");
+      if (scanReaderInput) {
+        let scanBurst = { startedAt: 0, lastAt: 0, keyCount: 0 };
+
+        function resetScanBurst() {
+          scanBurst = { startedAt: 0, lastAt: 0, keyCount: 0 };
+        }
+
+        scanReaderInput.addEventListener("paste", function (e) {
+          e.preventDefault();
+        });
+
+        scanReaderInput.addEventListener("keydown", function (e) {
+          const now = (window.performance && performance.now) ? performance.now() : Date.now();
+
           if (e.key === "Enter") {
             e.preventDefault();
-            const q = input.value.trim();
-            if (!q) return;
+            const q = scanReaderInput.value.trim();
+            if (!q) {
+              resetScanBurst();
+              return;
+            }
+
+            const duration = (scanBurst.startedAt && scanBurst.lastAt) ? (scanBurst.lastAt - scanBurst.startedAt) : 9999;
+            const looksLikeScanner = scanBurst.keyCount >= 6 && duration <= 350;
+
+            if (!looksLikeScanner) {
+              scanReaderInput.value = "";
+              resetScanBurst();
+              return;
+            }
 
             htmx.ajax("POST", "{% url 'caja:scan_add' %}", {
               target: "#carrito_body",
@@ -642,9 +993,29 @@
               headers: { "X-CSRFToken": getCookie("csrftoken") }
             });
 
-            input.value = "";
+            scanReaderInput.value = "";
+            resetScanBurst();
+            return;
+          }
+
+          if (e.key === "Tab") {
+            resetScanBurst();
+            return;
+          }
+
+          if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+          if (e.key.length === 1) {
+            if (!scanBurst.lastAt || (now - scanBurst.lastAt) > 120) {
+              scanBurst.startedAt = now;
+              scanBurst.keyCount = 0;
+            }
+            scanBurst.lastAt = now;
+            scanBurst.keyCount += 1;
           }
         });
+
+        scanReaderInput.addEventListener("blur", resetScanBurst);
       }
     });
 
@@ -673,10 +1044,25 @@
         const wrap = document.getElementById("carrito_scroll");
         if (wrap) wrap.scrollTop = 0;
 
-        const q = document.getElementById("q");
-        if (q) q.focus();
+        const scanInput = document.getElementById("scan_reader_input");
+        if (scanInput) scanInput.focus();
       }
     });
+
+    // Delegated change handler: submit form when tarjeta select changes
+    document.body.addEventListener('change', function(evt){
+      try{
+        var el = evt.target || evt.srcElement;
+        if(!el) return;
+        if(el.matches && el.matches('select.tarjeta-select')){
+          var f = el.closest('form');
+          if(f){
+            if(typeof f.requestSubmit === 'function') f.requestSubmit();
+            else f.submit();
+          }
+        }
+      }catch(e){/* ignore */}
+    }, true);
 
     document.body.addEventListener('htmx:oobAfterSwap', function () {
       initSelects(document);
@@ -689,17 +1075,85 @@
     });
 
     document.body.addEventListener("htmx:responseError", function (evt) {
-      const target = document.querySelector("#confirm_res");
-      if (!target) return;
-      target.innerHTML = evt.detail.xhr.responseText || "Error al confirmar.";
+      // Si la respuesta contiene HX-Trigger, HTMX ya disparará el evento posToast;
+      // evitamos duplicados.
+      try {
+        var xhr = evt && evt.detail && evt.detail.xhr;
+        var hxTrigger = xhr && typeof xhr.getResponseHeader === 'function' && xhr.getResponseHeader('HX-Trigger');
+        if (hxTrigger) return;
+      } catch (e) { /* ignore */ }
+
+      // Mostrar el error via posToast en lugar de inyectar en el card de confirmación
+      var msg = (evt && evt.detail && evt.detail.xhr && evt.detail.xhr.responseText) ? evt.detail.xhr.responseText : "Error al confirmar.";
+      document.body.dispatchEvent(new CustomEvent('posToast', { detail: { message: msg } }));
     });
 
     document.body.addEventListener("posToast", function (evt) {
-      if (window.M && M.toast) {
-        M.toast({ html: evt.detail.message });
-      } else {
-        alert(evt.detail.message);
+      var msg = (evt && evt.detail && evt.detail.message) ? evt.detail.message : '';
+
+      // Crear contenedor superior si no existe
+      var container = document.getElementById('pos_toast_container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'pos_toast_container';
+        container.style.position = 'fixed';
+        container.style.zIndex = '20000';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        container.style.alignItems = 'flex-end';
+        container.style.gap = '12px';
+        document.body.appendChild(container);
+
+        // function to position container: below navbar and centered in the gap
+        function positionToastContainer() {
+          var nav = document.querySelector('nav');
+          var topOffset = 12;
+          if (nav && nav.getBoundingClientRect) {
+            try { topOffset = nav.getBoundingClientRect().bottom + 8; } catch(e){}
+          }
+          container.style.top = topOffset + 'px';
+
+          // center between right edge of .container and viewport right edge
+          var content = document.querySelector('.container');
+          var rightEdge = 0;
+          if (content && content.getBoundingClientRect) {
+            try { rightEdge = content.getBoundingClientRect().right; } catch(e) { rightEdge = 0; }
+          }
+          var viewportRight = window.innerWidth || document.documentElement.clientWidth;
+          var mid = Math.floor((rightEdge + viewportRight) / 2);
+
+          container.style.left = mid + 'px';
+          container.style.right = 'auto';
+          container.style.transform = 'translateX(-50%)';
+        }
+
+        // initial positioning and on resize
+        positionToastContainer();
+        window.addEventListener('resize', positionToastContainer);
       }
+
+      var toast = document.createElement('div');
+      toast.className = 'pos-toast';
+      // Fondo rojo semitransparente con texto negro, manteniendo el tamaño y sombras
+      toast.style.background = 'rgba(255,82,82,0.92)';
+      toast.style.color = '#000';
+      toast.style.padding = '15px 20px';
+      toast.style.borderRadius = '6px';
+      toast.style.boxShadow = '0 2px 6px rgba(0,0,0,0.2)';
+      toast.style.maxWidth = '605px';
+      toast.style.textAlign = 'center';
+      toast.style.fontSize = '20px';
+      toast.innerHTML = msg;
+
+      container.appendChild(toast);
+
+      // Remover después de 5 segundos
+      setTimeout(function(){
+        try { container.removeChild(toast); } catch(e){}
+        if (container && !container.firstChild) {
+          try { container.remove(); } catch(e){}
+        }
+      }, 5000);
     });
   </script>
 

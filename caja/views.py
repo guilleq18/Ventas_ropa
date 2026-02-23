@@ -6,7 +6,7 @@ import json
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -19,6 +19,14 @@ from core.models import Sucursal
 from catalogo.models import Variante, StockSucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from ventas.services import confirmar_venta
+from django.core.exceptions import ValidationError
+from cuentas_corrientes.models import Cliente, CuentaCorriente, MovimientoCuentaCorriente
+
+from admin_panel.services import permitir_vender_sin_stock, permitir_cambiar_precio_venta, get_ventas_flags
+from .utils import handle_pos_errors
+
+
+
 
 
 # ======================================================================
@@ -87,7 +95,7 @@ def _payments_default() -> dict:
         "recargo_pct": "0.00",
         "referencia": "",
 
-        # POS (opcionales)
+        # POS
         "pos_proveedor": "",
         "pos_terminal_id": "",
         "pos_lote": "",
@@ -99,7 +107,12 @@ def _payments_default() -> dict:
         # Crédito
         "tarjeta": "",
         "plan_id": "",
+
+        # Cuenta corriente
+        "cc_cliente_id": "",
+        "cc_q": "",
     }
+
 
 
 def _parse_decimal_ar(raw) -> Decimal:
@@ -161,24 +174,33 @@ def _payments_total(payments: list) -> Decimal:
 
 
 def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
-    """
-    Devuelve:
-      - ui_payments: lista de pagos enriquecidos (cálculos, selected_plan_id, etc.)
-      - recargos: suma recargos crédito
-      - total_cobrar: total_base + recargos
-      - pagado: _payments_total(payments)
-      - saldo: total_cobrar - pagado
-    """
     ui_payments = []
-    recargos_credito = Decimal("0.00")
+    recargos_credito = Decimal("0")
+
+    # ---- preparar CC (pocos pagos = simple y seguro) ----
+    cc_ids = []
+    for p in payments:
+        if (p.get("tipo") or "").strip() == "CUENTA_CORRIENTE":
+            raw = (p.get("cc_cliente_id") or "").strip()
+            if raw.isdigit():
+                cc_ids.append(int(raw))
+
+    clientes_map = {}
+    cc_map = {}
+    if cc_ids:
+        clientes_map = {c.id: c for c in Cliente.objects.filter(id__in=cc_ids, activo=True)}
+        cc_map = {
+            cc.cliente_id: cc
+            for cc in CuentaCorriente.objects.select_related("cliente").filter(cliente_id__in=cc_ids, activa=True)
+        }
 
     for p in payments:
         tipo = (p.get("tipo") or "").strip()
 
         try:
-            monto = Decimal(str(p.get("monto", "0") or "0")).quantize(Decimal("0.01"))
+            monto = Decimal(str(p.get("monto", "0") or "0"))
         except Exception:
-            monto = Decimal("0.00")
+            monto = Decimal("0")
 
         try:
             cuotas = int(p.get("cuotas") or 1)
@@ -186,9 +208,9 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
             cuotas = 1
 
         try:
-            recargo_pct = Decimal(str(p.get("recargo_pct") or "0")).quantize(Decimal("0.01"))
+            recargo_pct = Decimal(str(p.get("recargo_pct") or "0"))
         except Exception:
-            recargo_pct = Decimal("0.00")
+            recargo_pct = Decimal("0")
 
         recargo_monto = (monto * recargo_pct / Decimal("100")).quantize(Decimal("0.01"))
         total_tarjeta = (monto + recargo_monto).quantize(Decimal("0.01"))
@@ -198,13 +220,38 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
             recargos_credito += recargo_monto
 
         p_ui = dict(p)
-        p_ui["monto"] = str(monto)
+        p_ui["monto"] = str(monto.quantize(Decimal("0.01")))
         p_ui["cuotas"] = cuotas
-        p_ui["recargo_pct"] = str(recargo_pct)
+        p_ui["recargo_pct"] = str(recargo_pct.quantize(Decimal("0.01")))
         p_ui["recargo_monto_calc"] = recargo_monto
         p_ui["total_tarjeta_calc"] = total_tarjeta
         p_ui["cuota_calc"] = cuota_est
+        p_ui["tipo_locked"] = bool(monto > 0)
         p_ui["selected_plan_id"] = (p.get("plan_id") or "").strip()
+
+        # ---- campos UI Cuenta Corriente ----
+        p_ui["cc_q"] = (p.get("cc_q") or "").strip()
+        p_ui["cc_cliente_nombre"] = ""
+        p_ui["cc_cliente_dni"] = ""
+        p_ui["cc_ok"] = False
+        p_ui["cc_saldo"] = Decimal("0.00")
+
+        if tipo == "CUENTA_CORRIENTE":
+            raw_id = (p.get("cc_cliente_id") or "").strip()
+            if raw_id.isdigit():
+                cid = int(raw_id)
+                cli = clientes_map.get(cid)
+                if cli:
+                    p_ui["cc_cliente_nombre"] = f"{cli.apellido}, {cli.nombre}"
+                    p_ui["cc_cliente_dni"] = cli.dni
+
+                cc = cc_map.get(cid)
+                if cc:
+                    p_ui["cc_ok"] = True
+                    try:
+                        p_ui["cc_saldo"] = Decimal(str(cc.saldo())).quantize(Decimal("0.01"))
+                    except Exception:
+                        p_ui["cc_saldo"] = Decimal("0.00")
 
         ui_payments.append(p_ui)
 
@@ -224,10 +271,61 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
     }
 
 
+
 def _ctx_pagos_pos(request) -> dict:
     payments = _payments_get(request) or []
     total_base = _cart_total(_cart_get(request))
     pay_ctx = _payments_build_ui_and_totals(payments, total_base)
+        # =========================
+    # Enriquecer pagos CC (cliente + saldo)
+    # =========================
+    cc_ids = []
+    for p in pay_ctx["ui_payments"]:
+        if (p.get("tipo") == "CUENTA_CORRIENTE") and str(p.get("cc_cliente_id") or "").isdigit():
+            cc_ids.append(int(p["cc_cliente_id"]))
+
+    clientes_map = {}
+    cuentas_map = {}
+
+    if cc_ids:
+        clientes = Cliente.objects.filter(id__in=cc_ids, activo=True)
+        clientes_map = {c.id: c for c in clientes}
+
+        cuentas = CuentaCorriente.objects.filter(cliente_id__in=cc_ids)
+        cuentas_map = {cc.cliente_id: cc for cc in cuentas}
+
+        for p in pay_ctx["ui_payments"]:
+            if p.get("tipo") != "CUENTA_CORRIENTE":
+                continue
+
+            cid_raw = p.get("cc_cliente_id") or ""
+            if not str(cid_raw).isdigit():
+                p["cc_cliente_nombre"] = ""
+                p["cc_cliente_dni"] = ""
+                p["cc_saldo"] = None
+                p["cc_ok"] = False
+                continue
+
+            cid = int(cid_raw)
+            cli = clientes_map.get(cid)
+            cc = cuentas_map.get(cid)
+
+            if cli:
+                p["cc_cliente_nombre"] = f"{cli.apellido}, {cli.nombre}"
+                p["cc_cliente_dni"] = cli.dni
+            else:
+                p["cc_cliente_nombre"] = ""
+                p["cc_cliente_dni"] = ""
+
+            if cc and cc.activa:
+                # saldo() hace aggregate; como son pocos, OK
+                p["cc_saldo"] = cc.saldo()
+                p["cc_ok"] = True
+            else:
+                p["cc_saldo"] = None
+                p["cc_ok"] = False
+                
+
 
     tarjetas = list(
         PlanCuotas.objects.filter(activo=True)
@@ -313,6 +411,7 @@ def pagos_modal_open(request):
     return resp
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_add_modal(request):
@@ -333,50 +432,83 @@ def pagos_add_modal(request):
     return resp
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_set_modal(request, idx: int):
-    """
-    Guarda/actualiza el pago idx desde el modal.
-    """
     payments = _payments_get(request) or []
     if not (0 <= idx < len(payments)):
         return HttpResponse("Índice inválido", status=400)
 
     p = payments[idx]
 
-    tipo = (request.POST.get("tipo") or p.get("tipo") or "CONTADO").strip()
+    # ✅ 1) Definí el tipo anterior (antes de pisar p["tipo"])
+    tipo_prev = (p.get("tipo") or "").strip()
+
+    # ✅ 2) Calculá el tipo nuevo
+    tipo = (request.POST.get("tipo") or tipo_prev or "CONTADO").strip()
     p["tipo"] = tipo
 
-    # monto AR -> Decimal -> string normalizado
     p["monto"] = str(_parse_decimal_ar(request.POST.get("monto")))
-
-    # referencia
     p["referencia"] = (request.POST.get("referencia") or "").strip()
 
+    if tipo == "CUENTA_CORRIENTE":
+        # guardamos query del buscador si viene
+        if "cc_q" in request.POST:
+            p["cc_q"] = (request.POST.get("cc_q") or "").strip()
+
+        # guardamos cliente elegido si viene
+        if "cc_cliente_id" in request.POST:
+            p["cc_cliente_id"] = (request.POST.get("cc_cliente_id") or "").strip()
+
+        # si hay cliente válido -> referencia = "Apellido, Nombre - DNI"
+        ref = ""
+        cc_id = p.get("cc_cliente_id") or ""
+        if str(cc_id).isdigit():
+            cli = Cliente.objects.filter(id=int(cc_id)).only("apellido", "nombre", "dni").first()
+            if cli:
+                ref = f"{cli.apellido}, {cli.nombre} - {cli.dni}"
+
+        p["referencia"] = ref
+
+        # CC no usa crédito
+        p["tarjeta"] = ""
+        p["plan_id"] = ""
+        p["cuotas"] = 1
+        p["recargo_pct"] = "0.00"
+
+    else:
+        # si cambio a otro tipo, limpiar CC (y si venía de CC, limpiar referencia)
+        p["cc_cliente_id"] = ""
+        p["cc_q"] = ""
+
+        # ✅ 3) Limpia referencia SOLO si antes era CC y ahora ya no
+        if tipo_prev == "CUENTA_CORRIENTE":
+            p["referencia"] = ""
+
+
+
+    # =========================
+    # CRÉDITO
+    # =========================
     if tipo == "CREDITO":
-        tarjeta = (request.POST.get("tarjeta") or "").strip()
-        p["tarjeta"] = tarjeta
+        # solo actualizamos si vienen (evita borrar al tipear monto)
+        if "tarjeta" in request.POST:
+            p["tarjeta"] = (request.POST.get("tarjeta") or "").strip()
 
-        plan_id = (request.POST.get("plan_id") or "").strip()
-        p["plan_id"] = plan_id
+        if "plan_id" in request.POST:
+            plan_id = (request.POST.get("plan_id") or "").strip()
+            p["plan_id"] = plan_id
 
-        # si hay plan, tomamos cuotas/recargo del plan (más seguro)
-        if plan_id:
-            plan = PlanCuotas.objects.filter(id=int(plan_id), activo=True).first()
-            if plan:
-                p["cuotas"] = int(plan.cuotas)
-                p["recargo_pct"] = str(Decimal(str(plan.recargo_pct)).quantize(Decimal("0.01")))
-                p["tarjeta"] = plan.tarjeta
-        else:
-            # fallback (si tu UI no usa plan_id en algún caso)
-            try:
-                p["cuotas"] = int(request.POST.get("cuotas") or p.get("cuotas") or 1)
-            except Exception:
+            if plan_id:
+                plan = PlanCuotas.objects.filter(id=int(plan_id), activo=True).first()
+                if plan:
+                    p["cuotas"] = int(plan.cuotas)
+                    p["recargo_pct"] = str(Decimal(str(plan.recargo_pct)).quantize(Decimal("0.01")))
+                    p["tarjeta"] = plan.tarjeta
+            else:
                 p["cuotas"] = 1
-
-            # si querés permitir recargo manual, lo leés acá; si no, dejalo 0
-            p["recargo_pct"] = "0.00"
+                p["recargo_pct"] = "0.00"
 
     else:
         # si no es crédito, limpiar campos de crédito
@@ -391,6 +523,7 @@ def pagos_set_modal(request, idx: int):
     return HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_del_modal(request, idx: int):
@@ -405,6 +538,7 @@ def pagos_del_modal(request, idx: int):
     return HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_del_table(request, idx: int):
@@ -416,6 +550,17 @@ def pagos_del_table(request, idx: int):
         payments.pop(idx)
         _payments_save(request, payments)
 
+    return HttpResponse(_oob_pagos_html(request))
+
+
+@handle_pos_errors
+@login_required
+@require_POST
+def pagos_vaciar_table(request):
+    """
+    Vaciar pagos desde el card (sin devolver modal).
+    """
+    _payments_save(request, [])
     return HttpResponse(_oob_pagos_html(request))
 
 
@@ -586,6 +731,10 @@ def _render_cart(request):
 
         # si ya no usás pagos_body, dejalo apagado
         "oob_pagos": False,
+
+        # permisos/flags
+        "permitir_cambiar_precio_venta": permitir_cambiar_precio_venta(),
+        "permitir_sin_stock": permitir_vender_sin_stock(),
     })
 
 
@@ -607,6 +756,8 @@ def pos(request):
 
     sucursal = _get_pos_sucursal()
     cart_ctx = _build_cart_context(request)
+    cart_variante_ids = [row["variante"].id for row in cart_ctx["items"]]
+    stock_map = _build_stock_map(sucursal, cart_variante_ids)
 
     payments = _payments_get(request) or []
     total_base = Decimal(cart_ctx["total"]).quantize(Decimal("0.01"))
@@ -664,6 +815,9 @@ def pos(request):
         "confirm_token": token,
         "cart_items": cart_ctx["items"],
         "cart_total": cart_ctx["total"],
+        "stock_map": stock_map,
+        "permitir_cambiar_precio_venta": permitir_cambiar_precio_venta(),
+        "permitir_sin_stock": permitir_vender_sin_stock(),
 
         # pagos para el card
         "payments": pay_ctx["ui_payments"],
@@ -721,9 +875,11 @@ def buscar_variantes(request):
         "results": results,
         "sucursal": sucursal,
         "stock_map": stock_map,
+        "permitir_sin_stock": permitir_vender_sin_stock(),
     })
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def scan_add(request):
@@ -790,6 +946,7 @@ def scan_add(request):
 # Carrito
 # ======================================================================
 
+@handle_pos_errors
 @login_required
 @require_POST
 def carrito_agregar(request, variante_id: int):
@@ -800,13 +957,16 @@ def carrito_agregar(request, variante_id: int):
     cart = _cart_get(request)
     key = str(v.id)
     qty_actual = int(cart.get(key, {}).get("qty", 0))
+    perm_sin_stock = permitir_vender_sin_stock()
 
-    if stock <= 0:
-        return _render_cart_with_toast(request, f"Sin stock en {sucursal.nombre}.")
+    # Cuando no está permitido vender sin stock, validar disponibilidad
+    if not perm_sin_stock:
+        if stock <= 0:
+            return _render_cart_with_toast(request, f"Sin stock en {sucursal.nombre}.")
+        if qty_actual + 1 > stock:
+            return _render_cart_with_toast(request, f"Stock insuficiente. Disponible: {stock} en {sucursal.nombre}.")
 
-    if qty_actual + 1 > stock:
-        return _render_cart_with_toast(request, f"Stock insuficiente. Disponible: {stock} en {sucursal.nombre}.")
-
+    # Añadir al carrito (siempre): incrementar cantidad o crear entrada
     if key not in cart:
         cart[key] = {"qty": 1, "precio": str(v.precio)}
     else:
@@ -816,11 +976,13 @@ def carrito_agregar(request, variante_id: int):
     return _render_cart(request)
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def carrito_set_qty(request, variante_id: int):
     cart = _cart_get(request)
     key = str(variante_id)
+    perm_sin_stock = permitir_vender_sin_stock()
 
     if key not in cart:
         return _render_cart(request)
@@ -836,21 +998,52 @@ def carrito_set_qty(request, variante_id: int):
     sucursal = _get_pos_sucursal()
     stock = _get_stock_disponible(sucursal, variante_id)
 
-    if stock <= 0:
+    if stock <= 0 and not perm_sin_stock:
         del cart[key]
         _cart_save(request, cart)
         return _render_cart_with_toast(request, f"Sin stock en {sucursal.nombre}. Se quitó del carrito.")
 
-    if qty > stock:
+
+    if qty > stock and not perm_sin_stock:
         cart[key]["qty"] = stock
         _cart_save(request, cart)
         return _render_cart_with_toast(request, f"Cantidad ajustada al stock disponible: {stock} en {sucursal.nombre}.")
+
 
     cart[key]["qty"] = qty
     _cart_save(request, cart)
     return _render_cart(request)
 
 
+@handle_pos_errors
+@login_required
+@require_POST
+def carrito_set_precio(request, variante_id: int):
+    """Permite actualizar el precio unitario en el carrito si el flag lo autoriza."""
+    if not permitir_cambiar_precio_venta():
+        return _render_cart(request)
+
+    cart = _cart_get(request)
+    key = str(variante_id)
+    if key not in cart:
+        return _render_cart(request)
+
+    raw = (request.POST.get("precio") or "").strip()
+    try:
+        precio = _parse_decimal_ar(raw)
+    except Exception:
+        precio = Decimal("0.00")
+
+    if precio <= 0:
+        # no permitimos precios nulos o negativos; dejar como estaba
+        return _render_cart(request)
+
+    cart[key]["precio"] = str(precio)
+    _cart_save(request, cart)
+    return _render_cart(request)
+
+
+@handle_pos_errors
 @login_required
 @require_POST
 def carrito_quitar(request, variante_id: int):
@@ -862,6 +1055,7 @@ def carrito_quitar(request, variante_id: int):
     return _render_cart(request)
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def carrito_vaciar(request):
@@ -874,6 +1068,7 @@ def carrito_vaciar(request):
 # Confirmar
 # ======================================================================
 
+@handle_pos_errors
 @login_required
 @require_POST
 def confirmar(request):
@@ -889,7 +1084,6 @@ def confirmar(request):
     if not cart:
         return HttpResponse("Carrito vacío", status=400)
 
-    # Total base (sin recargos)
     total_base = _cart_total(cart).quantize(Decimal("0.01"))
 
     payments = _payments_get(request) or []
@@ -897,8 +1091,8 @@ def confirmar(request):
         return HttpResponse("No hay pagos cargados.", status=400)
 
     pagos_limpios = []
-    suma_montos_base = Decimal("0.00")  # suma de montos sin recargo
-    suma_recargos = Decimal("0.00")     # suma recargos por crédito
+    suma_montos_base = Decimal("0.00")
+    suma_recargos = Decimal("0.00")
 
     for p in payments:
         tipo = (p.get("tipo") or "").strip()
@@ -913,7 +1107,6 @@ def confirmar(request):
         if monto <= 0:
             continue
 
-        # Defaults robustos
         try:
             cuotas = int(p.get("cuotas") or 1)
         except Exception:
@@ -956,13 +1149,13 @@ def confirmar(request):
             "pos_marca": (p.get("pos_marca") or "").strip(),
             "pos_ultimos4": (p.get("pos_ultimos4") or "").strip(),
 
+            "cc_cliente_id": (p.get("cc_cliente_id") or "").strip(),
             "plan_id": (p.get("plan_id") or "").strip(),
         })
 
     suma_montos_base = suma_montos_base.quantize(Decimal("0.01"))
     suma_recargos = suma_recargos.quantize(Decimal("0.01"))
 
-    # 1) Los montos base deben cubrir el total del carrito
     if suma_montos_base != total_base:
         return HttpResponse(
             f"Pagos base incompletos. Total ${total_base} - Base cargada ${suma_montos_base}.",
@@ -978,8 +1171,25 @@ def confirmar(request):
             status=400
         )
 
+    # Validación previa (sin lock) de CC
+    for p in pagos_limpios:
+        if p["tipo"] == "CUENTA_CORRIENTE":
+            if not str(p.get("cc_cliente_id") or "").isdigit():
+                return HttpResponse("Cuenta corriente: falta seleccionar cliente.", status=400)
+
+            cuenta = CuentaCorriente.objects.filter(
+                cliente_id=int(p["cc_cliente_id"]),
+                activa=True
+            ).first()
+
+            if not cuenta:
+                return HttpResponse("Cuenta corriente: el cliente no tiene cuenta corriente activa.", status=400)
+
     try:
         with transaction.atomic():
+            # =========================
+            # Venta
+            # =========================
             venta = Venta.objects.create(
                 sucursal=sucursal,
                 estado=Venta.Estado.BORRADOR,
@@ -987,6 +1197,9 @@ def confirmar(request):
                 total=total_cobrar,
             )
 
+            # =========================
+            # Items
+            # =========================
             for vid_str, item in cart.items():
                 v = get_object_or_404(Variante, id=int(vid_str), activo=True)
                 qty = int(item["qty"])
@@ -998,6 +1211,9 @@ def confirmar(request):
                     precio_unitario=precio,
                 )
 
+            # =========================
+            # Pagos
+            # =========================
             for p in pagos_limpios:
                 plan_obj = None
                 if p.get("plan_id"):
@@ -1005,6 +1221,18 @@ def confirmar(request):
                         plan_obj = PlanCuotas.objects.filter(id=int(p["plan_id"]), activo=True).first()
                     except (TypeError, ValueError):
                         plan_obj = None
+                        # Si es Cuenta Corriente, guardamos el label en referencia (Apellido, Nombre - DNI)
+                if p.get("tipo") == "CUENTA_CORRIENTE":
+                    cc_id = (p.get("cc_cliente_id") or "").strip()
+                    if cc_id.isdigit():
+                        cli = Cliente.objects.filter(id=int(cc_id), activo=True).first()
+                        if cli:
+                            p["referencia"] = f"{cli.apellido}, {cli.nombre} - {cli.dni}"
+                        else:
+                            p["referencia"] = ""
+                    else:
+                        p["referencia"] = ""
+
 
                 VentaPago.objects.create(
                     venta=venta,
@@ -1025,7 +1253,42 @@ def confirmar(request):
                     pos_ultimos4=(p.get("pos_ultimos4", "") or "")[:4],
                 )
 
+            # =========================
+            # Confirmar venta (stock/estado/etc)
+            # =========================
             confirmar_venta(venta)
+
+            # =========================
+            # Cuenta Corriente: generar DÉBITO (con lock)
+            # =========================
+            for p in pagos_limpios:
+                if p.get("tipo") != "CUENTA_CORRIENTE":
+                    continue
+
+                cc_cliente_id = p.get("cc_cliente_id")
+                if not str(cc_cliente_id or "").isdigit():
+                    raise ValidationError("Cuenta corriente: falta seleccionar cliente.")
+
+                cc_cliente_id = int(cc_cliente_id)
+
+                cuenta = (
+                    CuentaCorriente.objects
+                    .select_for_update()
+                    .filter(cliente_id=cc_cliente_id, activa=True)
+                    .first()
+                )
+
+                if not cuenta:
+                    raise ValidationError("Cuenta corriente: el cliente no tiene cuenta corriente activa.")
+
+                MovimientoCuentaCorriente.objects.create(
+                    cuenta=cuenta,
+                    tipo=MovimientoCuentaCorriente.Tipo.DEBITO,
+                    monto=p["monto"].quantize(Decimal("0.01")),
+                    venta=venta,
+                    referencia=f"Venta #{venta.id}",
+                    observacion="Débito generado desde POS",
+                )
 
             # Por si confirmar_venta() recalcula y pisa el total:
             venta.total = total_cobrar
@@ -1034,10 +1297,8 @@ def confirmar(request):
     except ValidationError as e:
         return HttpResponse(str(e), status=400)
 
-    # Guardar venta para mostrar modal post-confirm
     request.session["pos_last_sale_id"] = venta.id
 
-    # Reset total POS (carrito + pagos + token)
     _cart_save(request, {})
     _payments_save(request, [])
     request.session["pos_confirm_token"] = str(uuid.uuid4())
@@ -1116,6 +1377,7 @@ def _render_pagos_body_html(request) -> str:
     return render_to_string("caja/_pagos_body.html", ctx, request=request)
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_add(request):
@@ -1134,6 +1396,7 @@ def pagos_add(request):
     return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_del(request, idx: int):
@@ -1148,13 +1411,10 @@ def pagos_del(request, idx: int):
     return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
 
 
+@handle_pos_errors
 @login_required
 @require_POST
 def pagos_set(request, idx: int):
-    """
-    Endpoint viejo: actualiza un pago por índice (misma lógica que el modal)
-    y devuelve body + OOB.
-    """
     payments = _payments_get(request) or []
     if not (0 <= idx < len(payments)):
         return HttpResponse("Índice inválido", status=400)
@@ -1169,30 +1429,82 @@ def pagos_set(request, idx: int):
 
     if tipo == "CREDITO":
         tarjeta = (request.POST.get("tarjeta") or "").strip()
-        p["tarjeta"] = tarjeta
 
-        plan_id = (request.POST.get("plan_id") or "").strip()
-        p["plan_id"] = plan_id
+        if tarjeta and p.get("tarjeta") != tarjeta:
+            p.pop("cuotas", None)
+            p.pop("plan_id", None)
 
-        if plan_id:
-            plan = PlanCuotas.objects.filter(id=int(plan_id), activo=True).first()
-            if plan:
-                p["cuotas"] = int(plan.cuotas)
-                p["recargo_pct"] = str(Decimal(str(plan.recargo_pct)).quantize(Decimal("0.01")))
-                p["tarjeta"] = plan.tarjeta
+        if tarjeta:
+            p["tarjeta"] = tarjeta
         else:
-            try:
-                p["cuotas"] = int(request.POST.get("cuotas") or p.get("cuotas") or 1)
-            except Exception:
-                p["cuotas"] = 1
-            p["recargo_pct"] = "0.00"
+            p.pop("tarjeta", None)
+            p.pop("cuotas", None)
+            p.pop("plan_id", None)
     else:
-        p["tarjeta"] = ""
-        p["plan_id"] = ""
-        p["cuotas"] = 1
-        p["recargo_pct"] = "0.00"
+        p.pop("tarjeta", None)
+        p.pop("cuotas", None)
+        p.pop("plan_id", None)
+
+    payments[idx] = p
+    _payments_save(request, payments)  # importante que marque modified
+
+    # ✅ Render del fragmento que vive dentro de #pagos_table
+    
+    # ✅ esto TIENE que ejecutarse antes del return
+    request.session["payments"] = payments
+    request.session.modified = True
+
+    
+
+    return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
+
+# =========================
+# Cuenta Corriente: búsqueda y selección de cliente (modal)
+# =========================
+
+@login_required
+def cc_buscar_clientes(request, idx: int):
+    q = (request.GET.get("q") or "").strip()
+
+    results = []
+    if q:
+        qs = Cliente.objects.filter(activo=True)
+        if q.isdigit():
+            qs = qs.filter(dni__icontains=q)
+        else:
+            qs = qs.filter(Q(apellido__icontains=q) | Q(nombre__icontains=q))
+        results = list(qs.order_by("apellido", "nombre")[:20])
+
+    # Para pintar si tiene CC activa (sin calcular saldo acá)
+    cc_activa_ids = set(
+        CuentaCorriente.objects.filter(activa=True, cliente__in=results)
+        .values_list("cliente_id", flat=True)
+    )
+
+    return render(request, "caja/_cc_results.html", {
+        "idx": idx,
+        "q": q,
+        "results": results,
+        "cc_activa_ids": cc_activa_ids,
+    })
+
+
+@handle_pos_errors
+@login_required
+@require_POST
+def cc_pick_cliente_modal(request, idx: int, cliente_id: int):
+    payments = _payments_get(request) or []
+    if not (0 <= idx < len(payments)):
+        return HttpResponse("Índice inválido", status=400)
+
+    p = payments[idx]
+    # Solo tiene sentido si ese pago está en CC
+    p["tipo"] = p.get("tipo") or "CUENTA_CORRIENTE"
+    p["cc_cliente_id"] = str(cliente_id)
 
     payments[idx] = p
     _payments_save(request, payments)
 
-    return HttpResponse(_render_pagos_body_html(request) + _oob_pagos_html(request))
+    return HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
+
+
