@@ -282,9 +282,16 @@
                 {% endif %}
               {% endif %}
 
-              {% if p.referencia %}
-                <div class="pmeta">Ref: {{ p.referencia|num_ar }}</div>
+              
+
+              {% if p.tipo == "CUENTA_CORRIENTE" and p.referencia %}
+                <div class="grey-text" style="font-size:10px;">
+                  {{ p.referencia|cut:"Cuenta corriente — "|cut:"Cuenta corriente - " }}
+                </div>
+              {% elif p.referencia %}
+                <div class="grey-text" style="font-size:10px;">Ref: {{ p.referencia }}</div>
               {% endif %}
+
             </div>
 
             <div class="right mono" style="font-weight:900; white-space:nowrap;">

@@ -9,21 +9,25 @@
 
       <form method="post">
         {% csrf_token %}
+        <input type="hidden" name="action" value="save_flags">
 
-        <p>
-          <label>
-            <input type="checkbox" name="permitir_sin_stock" {% if permitir_sin_stock %}checked{% endif %}/>
-            <span>Permitir vender sin stock</span>
-          </label>
-        </p>
-        <p class="grey-text" style="margin-top:6px;">{{ setting_desc }}</p>
+        <label>
+          <input type="checkbox" name="permitir_sin_stock" {% if permitir_sin_stock %}checked{% endif %}>
+          <span>Permitir vender sin stock</span>
+        </label>
 
-        <div style="margin-top:16px;">
-          <button class="btn" type="submit">
-            Guardar
-          </button>
-        </div>
+        <p></p>
+
+        <label>
+          <input type="checkbox" name="permitir_cambiar_precio_venta" {% if permitir_cambiar_precio_venta %}checked{% endif %}>
+          <span>Permitir cambiar precio de venta</span>
+        </label>
+
+        <p></p>
+
+        <button class="btn">Guardar</button>
       </form>
+
     </div>
   </div>
 {% endblock %}

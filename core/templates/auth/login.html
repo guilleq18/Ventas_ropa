@@ -8,11 +8,21 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
 
   <style>
-    body { background: #f3f4f6; }
+    :root{
+      --ui-bg: #f4e7e0;
+      --ui-shell: #efd8cd;
+      --ui-card: #f7eee8;
+      --ui-card-soft: #f2e0d4;
+      --ui-border: rgba(156, 103, 76, 0.18);
+      --ui-nav: #7b4f43;
+      --ui-nav-2: #6f463b;
+      --ui-text-soft: #7a6258;
+    }
+    body { background: var(--ui-bg); color:#3f2f29; }
     .auth-wrap { min-height: 100vh; display:flex; align-items:center; }
-    .auth-card { border-radius: 14px; overflow:hidden; }
+    .auth-card { border-radius: 14px; overflow:hidden; background:var(--ui-card); border:1px solid var(--ui-border); }
     .auth-header {
-      background: linear-gradient(135deg, #0d47a1, #1565c0);
+      background: linear-gradient(135deg, var(--ui-nav), var(--ui-nav-2));
       padding: 22px 22px;
       color: #fff;
     }
@@ -21,8 +31,8 @@
     .auth-body { padding: 22px; }
     .helper-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .btn-full { width:100%; border-radius:10px; }
-    .input-field input:focus + label { color:#1565c0 !important; }
-    .input-field input:focus { border-bottom:1px solid #1565c0 !important; box-shadow:0 1px 0 0 #1565c0 !important; }
+    .input-field input:focus + label { color:#8d5a4d !important; }
+    .input-field input:focus { border-bottom:1px solid #8d5a4d !important; box-shadow:0 1px 0 0 #8d5a4d !important; }
     .small-note { font-size: .9rem; }
   </style>
 </head>
@@ -88,7 +98,7 @@
               <span class="grey-text small-note">¿Olvidaste tu clave? Consultá al administrador</span>
             </div>
 
-            <button class="btn blue darken-3 waves-effect waves-light btn-full" type="submit">
+            <button class="btn waves-effect waves-light btn-full" type="submit" style="background:linear-gradient(180deg, #7b4f43 0%, #6f463b 100%);">
               Entrar
             </button>
 

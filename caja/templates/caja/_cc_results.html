@@ -1,0 +1,50 @@
+{# templates/caja/_cc_results.html #}
+
+{% if not q %}
+  <div class="grey-text" style="font-size:12px; padding:0 12px 10px;">
+    Escribí un DNI para buscar.
+  </div>
+
+{% elif not results %}
+  <div class="card-panel grey lighten-4" style="padding:10px 12px; margin:0 14px 12px;">
+    <span class="grey-text text-darken-2">
+      Sin resultados para <strong>{{ q }}</strong>
+    </span>
+  </div>
+
+{% else %}
+  <ul class="collection" style="margin:0 14px 12px;">
+    {% for c in results %}
+      <li class="collection-item" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <div>
+          <div style="font-weight:700;">{{ c.apellido }}, {{ c.nombre }}</div>
+          <div class="grey-text" style="font-size:12px;">
+            DNI: {{ c.dni }}
+            {% if c.id in cc_activa_ids %}
+              — <span class="teal-text" style="font-weight:700;">CC activa</span>
+            {% else %}
+              — <span class="red-text" style="font-weight:700;">Sin CC</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn-small teal waves-effect waves-light"
+
+          hx-post="{% url 'caja:pagos_set_modal' idx %}"
+          hx-target="#pago_modal_content"
+          hx-swap="innerHTML"
+
+          {# IMPORTANTE: incluimos CSRF + monto actual para no pisarlo a 0 #}
+          hx-include="#pago_form_{{ idx }} input[name='csrfmiddlewaretoken'], #pago_form_{{ idx }} input[name='monto']"
+
+          {# mandamos lo que define la selección #}
+          hx-vals='{"tipo":"CUENTA_CORRIENTE","cc_cliente_id":"{{ c.id }}","cc_q":"{{ q }}"}'
+        >
+          Elegir
+        </button>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}

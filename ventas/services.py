@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 
 from catalogo.models import StockSucursal
 from .models import Venta
+from admin_panel.services import permitir_vender_sin_stock
 
 
 @transaction.atomic
@@ -16,21 +17,22 @@ def confirmar_venta(venta: Venta):
     for item in venta.items.select_related("variante").all():
         total += item.subtotal
 
-    # Descontar stock por item
-    for item in venta.items.select_related("variante").all():
-        stock, _ = StockSucursal.objects.select_for_update().get_or_create(
-            sucursal=venta.sucursal,
-            variante=item.variante,
-            defaults={"cantidad": 0},
-        )
-
-        if stock.cantidad < item.cantidad:
-            raise ValidationError(
-                f"Stock insuficiente para {item.variante.sku}. Disponible: {stock.cantidad}, requerido: {item.cantidad}"
+    # Descontar stock por item (saltamos si está permitido vender sin stock)
+    if not permitir_vender_sin_stock():
+        for item in venta.items.select_related("variante").all():
+            stock, _ = StockSucursal.objects.select_for_update().get_or_create(
+                sucursal=venta.sucursal,
+                variante=item.variante,
+                defaults={"cantidad": 0},
             )
 
-        stock.cantidad -= item.cantidad
-        stock.save()
+            if stock.cantidad < item.cantidad:
+                raise ValidationError(
+                    f"Stock insuficiente para {item.variante.sku}. Disponible: {stock.cantidad}, requerido: {item.cantidad}"
+                )
+
+            stock.cantidad -= item.cantidad
+            stock.save()
 
     venta.total = total
     venta.estado = Venta.Estado.CONFIRMADA

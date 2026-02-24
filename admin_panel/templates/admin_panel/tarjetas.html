@@ -1,0 +1,253 @@
+{% extends "admin_panel/base.html" %}
+{% block title %}Tarjetas{% endblock %}
+{% block header_title %}Tarjetas{% endblock %}
+
+{% block content %}
+  <style>
+    .tarjetas-toolbar{
+      display:flex;
+      align-items:flex-end;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .tarjetas-filter-form{
+      margin:0;
+      flex:1 1 320px;
+      min-width:240px;
+    }
+    .tarjetas-actions{
+      display:flex;
+      gap:8px;
+      margin-left:auto;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    #tarjetas_table input[type="text"],
+    #tarjetas_table input[type="number"]{
+      min-width: 90px;
+    }
+    @media only screen and (max-width: 992px){
+      .tarjetas-toolbar{
+        align-items:stretch;
+      }
+      .tarjetas-filter-form{
+        flex-basis:100%;
+        min-width:0;
+      }
+      .tarjetas-actions{
+        width:100%;
+        margin-left:0;
+        justify-content:flex-start;
+      }
+      .tarjetas-actions .btn,
+      .tarjetas-actions .btn-flat{
+        width:auto;
+      }
+    }
+    @media only screen and (max-width: 600px){
+      .tarjetas-actions .btn,
+      .tarjetas-actions .btn-flat{
+        width:100%;
+        text-align:center;
+      }
+      #tarjetas_table td{
+        padding-top:8px;
+        padding-bottom:8px;
+      }
+      #tarjetas_table td input[type="text"],
+      #tarjetas_table td input[type="number"]{
+        width:100%;
+        min-width:0;
+        box-sizing:border-box;
+      }
+      #tarjetas_table .btn-small{
+        margin-top:4px;
+      }
+      #plan_create_modal .modal-footer{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        justify-content:flex-end;
+      }
+      #plan_create_modal .modal-footer .btn,
+      #plan_create_modal .modal-footer .btn-flat{
+        width:100%;
+        text-align:center;
+      }
+    }
+  </style>
+  <div class="card">
+    <div class="card-content">
+      <span class="card-title">Tarjetas / Cuotas / Recargos</span>
+
+      <p class="grey-text" style="margin-top:0;">
+        Administrá los planes de cuotas para tarjetas de crédito usados en el POS.
+      </p>
+
+      <div class="card-panel grey lighten-5" style="margin-top:12px; padding:12px 16px;">
+        <div class="row tarjetas-toolbar" style="margin:0;">
+          <form id="tarjetas_filter_form" class="tarjetas-filter-form" method="get">
+            <div class="input-field" style="margin:0;">
+              <i class="material-icons prefix grey-text text-darken-1">search</i>
+              <input id="q_tarjeta" type="text" name="q" value="{{ q|default:'' }}" placeholder="Ej: VISA, MASTER, AMEX" autocomplete="off">
+              <label for="q_tarjeta" class="active">Buscar tarjeta</label>
+            </div>
+          </form>
+
+          <div class="tarjetas-actions">
+            {% if q %}
+              <a href="{% url 'admin_panel:tarjetas' %}" class="btn-flat waves-effect">Limpiar</a>
+            {% endif %}
+            <a href="#plan_create_modal" class="btn green waves-effect waves-light modal-trigger">
+              <i class="material-icons left">add</i>Agregar
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {% if planes_cuotas %}
+        <table id="tarjetas_table" class="striped responsive-table" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Tarjeta</th>
+              <th>Cuotas</th>
+              <th>Recargo %</th>
+              <th>Activo</th>
+              <th class="right-align">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for plan in planes_cuotas %}
+              <tr>
+                <td style="min-width:180px;">
+                  <input type="text" name="tarjeta" form="plan_update_{{ plan.id }}" value="{{ plan.tarjeta }}" maxlength="30" required style="margin:0; height:2rem;">
+                </td>
+                <td style="width:110px;">
+                  <input type="number" name="cuotas" form="plan_update_{{ plan.id }}" min="1" value="{{ plan.cuotas }}" required style="margin:0; height:2rem;">
+                </td>
+                <td style="width:140px;">
+                  <input type="text" name="recargo_pct" form="plan_update_{{ plan.id }}" value="{{ plan.recargo_pct|floatformat:2 }}" required style="margin:0; height:2rem;">
+                </td>
+                <td style="width:90px;">
+                  <label>
+                    <input type="checkbox" name="activo" form="plan_update_{{ plan.id }}" {% if plan.activo %}checked{% endif %}>
+                    <span></span>
+                  </label>
+                </td>
+                <td class="right-align" style="white-space:nowrap;">
+                  <form id="plan_update_{{ plan.id }}" method="post" style="display:inline-block;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="plan_update">
+                    <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                  </form>
+                  <button class="btn-small blue" type="submit" form="plan_update_{{ plan.id }}" title="Guardar" aria-label="Guardar">
+                    <i class="material-icons">save</i>
+                  </button>
+                  <form method="post" style="display:inline-block; margin-left:6px;" onsubmit="return confirm('¿Eliminar este plan?');">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="plan_delete">
+                    <input type="hidden" name="plan_id" value="{{ plan.id }}">
+                    <button class="btn-small red" type="submit" title="Eliminar" aria-label="Eliminar">
+                      <i class="material-icons">delete</i>
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p id="tarjetas_filter_empty" class="grey-text" style="display:none; margin-top:12px;">
+          No se encontraron tarjetas para esa búsqueda.
+        </p>
+      {% else %}
+        <p class="grey-text">No hay planes de cuotas cargados todavía.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div id="plan_create_modal" class="modal">
+    <div class="modal-content">
+      <h5 style="margin-top:0;">Agregar plan de tarjeta</h5>
+      <p class="grey-text" style="margin-top:0;">Cargá tarjeta, cantidad de cuotas y recargo para usar en el POS.</p>
+
+      <form id="plan_create_form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="plan_create">
+
+        <div class="row" style="margin-bottom:0;">
+          <div class="input-field col s12 m6">
+            <input id="plan_tarjeta_new" type="text" name="tarjeta" maxlength="30" required placeholder="Ej: VISA">
+            <label for="plan_tarjeta_new" class="active">Tarjeta</label>
+          </div>
+
+          <div class="input-field col s12 m3">
+            <input id="plan_cuotas_new" type="number" name="cuotas" min="1" required placeholder="3">
+            <label for="plan_cuotas_new" class="active">Cuotas</label>
+          </div>
+
+          <div class="input-field col s12 m3">
+            <input id="plan_recargo_new" type="text" name="recargo_pct" required value="0,00" placeholder="0,00">
+            <label for="plan_recargo_new" class="active">Recargo %</label>
+          </div>
+        </div>
+
+        <p style="margin-top:0;">
+          <label>
+            <input type="checkbox" name="activo" checked>
+            <span>Activo</span>
+          </label>
+        </p>
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <a href="#!" class="modal-close btn-flat">Cancelar</a>
+      <button type="submit" form="plan_create_form" class="btn green waves-effect waves-light">
+        <i class="material-icons left">add</i>Agregar
+      </button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var input = document.getElementById('q_tarjeta');
+      var table = document.getElementById('tarjetas_table');
+      if (!input || !table) return;
+
+      var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+      var emptyMsg = document.getElementById('tarjetas_filter_empty');
+
+      function norm(text) {
+        return (text || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+      }
+
+      function applyFilter() {
+        var q = norm(input.value);
+        var visible = 0;
+
+        rows.forEach(function (row) {
+          var tarjetaInput = row.querySelector('input[name="tarjeta"]');
+          var key = norm(tarjetaInput ? tarjetaInput.value : row.textContent);
+          var match = !q || key.indexOf(q) !== -1;
+          row.style.display = match ? '' : 'none';
+          if (match) visible += 1;
+        });
+
+        if (emptyMsg) {
+          emptyMsg.style.display = visible === 0 ? '' : 'none';
+        }
+      }
+
+      input.addEventListener('input', applyFilter);
+      input.addEventListener('keydown', function (evt) {
+        if (evt.key === 'Enter') {
+          evt.preventDefault();
+        }
+      });
+      applyFilter();
+    })();
+  </script>
+{% endblock %}

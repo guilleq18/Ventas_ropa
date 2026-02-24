@@ -72,6 +72,7 @@ class VentaPago(models.Model):
         CREDITO = "CREDITO", "Crédito"
         TRANSFERENCIA = "TRANSFERENCIA", "Transferencia"
         QR = "QR", "QR"
+        CUENTA_CORRIENTE = "CUENTA_CORRIENTE", "Cuenta corriente"  
 
     venta = models.ForeignKey("ventas.Venta", on_delete=models.CASCADE, related_name="pagos")
 

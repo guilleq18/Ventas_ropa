@@ -18,6 +18,18 @@
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
   <style>
+    :root{
+      --pos-warm-bg: #f4e7e0;
+      --pos-warm-shell: #efd8cd;
+      --pos-card-bg: #f7eee8;
+      --pos-card-head: #f2e0d4;
+      --pos-card-border: rgba(156, 103, 76, 0.18);
+      --pos-divider: rgba(156, 103, 76, 0.14);
+      --pos-nav-bg: #7b4f43;
+      --pos-nav-bg-2: #6f463b;
+      --pos-nav-border: rgba(255,255,255,.14);
+      --pos-nav-hover: rgba(255,255,255,.10);
+    }
     /* =======================
        Modal Venta
     ======================= */
@@ -32,14 +44,21 @@
     /* =======================
        Layout cards POS
     ======================= */
-    .pos-card{ display:flex; flex-direction:column; min-height:0; }
+    .pos-card{
+      display:flex;
+      flex-direction:column;
+      min-height:0;
+      background: var(--pos-card-bg);
+      border: 1px solid var(--pos-card-border);
+      box-shadow: 0 6px 14px rgba(176, 120, 90, 0.06);
+    }
     .pos-card .card-content{ display:flex; flex-direction:column; height:100%; min-height:0; }
     .pos-card .card-head{ flex:0 0 auto; }
     .pos-card .card-body{
       flex:1 1 auto;
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
-      border-top:1px solid rgba(0,0,0,.08);
+      border-top:1px solid var(--pos-divider);
       margin-top:10px;
       padding-top:10px;
       min-height:0;
@@ -50,7 +69,7 @@
       position: sticky;
       top: 0;
       z-index: 5;
-      background: #fff;
+      background: var(--pos-card-head);
       padding-bottom: 8px;
     }
 
@@ -213,7 +232,10 @@
       position: sticky;
       bottom: 0;
       z-index: 999;
-      border-top: 1px solid rgba(0,0,0,.08);
+      border-top: 1px solid var(--pos-divider);
+      background: var(--pos-card-bg);
+      border: 1px solid var(--pos-card-border);
+      box-shadow: 0 6px 14px rgba(176, 120, 90, 0.06);
     }
     .pos-sticky .card-content{ padding: 12px 16px; }
     .pos-sticky .controls{
@@ -249,7 +271,8 @@
        NAV POS (pro)
     ======================= */
     .pos-nav{
-      background: #0f172a;
+      background: linear-gradient(180deg, var(--pos-nav-bg) 0%, var(--pos-nav-bg-2) 100%);
+      border-bottom: 1px solid rgba(0,0,0,.08);
     }
     .pos-nav .brand-logo{
       font-weight: 800;
@@ -267,6 +290,7 @@
       gap:8px;
       padding:6px 10px;
       border:1px solid rgba(255,255,255,.15);
+      border-color: var(--pos-nav-border);
       border-radius:999px;
       font-size:12px;
       line-height:1;
@@ -284,7 +308,7 @@
       color:#fff;
     }
     .pos-nav .btn-flat:hover{
-      background: rgba(255,255,255,.08);
+      background: var(--pos-nav-hover);
     }
 
     .dropdown-content{
@@ -312,6 +336,14 @@
       display:flex;
       align-items:center;
       gap:8px;
+      flex-wrap:nowrap;
+      flex:0 0 auto;
+      min-width:0;
+    }
+    .pos-nav ul.right .btn-flat,
+    .pos-nav ul.right .nav-chip{
+      white-space:nowrap;
+      flex-shrink:0;
     }
     .pos-nav i.material-icons{
       text-transform:none !important;
@@ -319,6 +351,7 @@
 
     @media (max-width: 1100px){
       #nav_clock{ display:none; }
+      #nav_date{ display:none; }
     }
     /* =======================
        Buscar modal styles — estética
@@ -394,10 +427,74 @@
       border-radius: 12px;
       border: 1px solid rgba(0,0,0,.06);
       box-shadow: 0 4px 16px rgba(15,23,42,0.06);
-      background: #f8fafc;
+      background: var(--pos-warm-shell);
     }
     .pos-shell-card > .row{ margin-bottom: 0; }
     .pos-shell-card .pos-sticky{ margin-top: 6px; }
+    .last-sale-rail{
+      position: fixed;
+      top: 74px;
+      left: 16px;
+      width: 250px;
+      z-index: 20;
+    }
+    .last-sale-rail .card{
+      margin: 0;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,.06);
+      box-shadow: 0 8px 18px rgba(15,23,42,.08);
+    }
+    .last-sale-rail .card-content{
+      padding: 14px 14px 10px;
+    }
+    .last-sale-rail .rail-title{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:700;
+      color:#263238;
+      margin-bottom:10px;
+    }
+    .last-sale-rail .rail-kpi{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:6px 0;
+      border-bottom:1px dashed rgba(0,0,0,.06);
+      font-size:13px;
+    }
+    .last-sale-rail .rail-kpi:last-of-type{
+      border-bottom:none;
+    }
+    .last-sale-rail .rail-list{
+      margin:8px 0 0;
+      border-top:1px solid rgba(0,0,0,.06);
+      padding-top:8px;
+    }
+    .last-sale-rail .rail-item{
+      font-size:12px;
+      line-height:1.25;
+      padding:4px 0;
+      color:#37474f;
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+    }
+    .last-sale-rail .rail-actions{
+      margin-top:10px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .last-sale-rail .rail-actions .btn,
+    .last-sale-rail .rail-actions .btn-flat{
+      flex:1 1 auto;
+      text-align:center;
+    }
+    @media (max-width: 1700px){
+      .last-sale-rail{ display:none; }
+    }
     @media (max-width: 600px){
       .pos-shell-card{ padding: 10px 10px 8px; }
     }
@@ -406,7 +503,67 @@
   </style>
 </head>
 
-<body class="grey lighten-4">
+<body style="background: var(--pos-warm-bg);">
+
+  {% if last_sale %}
+    <aside class="last-sale-rail hide-on-med-and-down" aria-label="Resumen de última venta">
+      <div class="card white">
+        <div class="card-content">
+          <div class="rail-title">
+            <i class="material-icons teal-text text-darken-1">receipt_long</i>
+            <span>Última venta</span>
+          </div>
+
+          <div class="grey-text text-darken-1" style="font-size:12px; margin-bottom:8px;">
+            #{{ last_sale.id }} · {{ last_sale.fecha|date:"d/m H:i" }}
+          </div>
+
+          <div class="rail-kpi">
+            <span class="grey-text text-darken-1">Sucursal</span>
+            <strong>{{ last_sale.sucursal.nombre }}</strong>
+          </div>
+          <div class="rail-kpi">
+            <span class="grey-text text-darken-1">Ítems</span>
+            <strong>{{ last_sale.items.count }}</strong>
+          </div>
+          <div class="rail-kpi">
+            <span class="grey-text text-darken-1">Pagos</span>
+            <strong>{{ last_sale_pagos|length }}</strong>
+          </div>
+          <div class="rail-kpi">
+            <span class="grey-text text-darken-1">Total ítems</span>
+            <strong>${{ last_sale_total_items|num_ar }}</strong>
+          </div>
+          <div class="rail-kpi" style="border-bottom:none;">
+            <span class="grey-text text-darken-1">Total final</span>
+            <strong class="teal-text text-darken-2">${{ last_sale_total_final|num_ar }}</strong>
+          </div>
+
+          <div class="rail-list">
+            {% for it in last_sale.items.all|slice:":3" %}
+              <div class="rail-item">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ it.variante.sku }}</span>
+                <strong>x{{ it.cantidad }}</strong>
+              </div>
+            {% empty %}
+              <div class="grey-text" style="font-size:12px;">Sin ítems</div>
+            {% endfor %}
+            {% if last_sale.items.count > 3 %}
+              <div class="grey-text" style="font-size:11px; margin-top:2px;">
+                +{{ last_sale.items.count|add:"-3" }} ítems más
+              </div>
+            {% endif %}
+          </div>
+
+          <div class="rail-actions">
+            <a href="{% url 'caja:ticket' last_sale.id %}?print=1" target="_blank" rel="noopener" class="btn green darken-1 waves-effect waves-light">
+              <i class="material-icons left">print</i>Ticket
+            </a>
+          </div>
+        </div>
+      </div>
+    </aside>
+  {% endif %}
 
   <!-- NAV -->
   <nav class="pos-nav z-depth-1">
@@ -421,9 +578,35 @@
 
       <ul class="right hide-on-med-and-down nav-actions">
         <li>
+          <a class="btn-flat waves-effect" href="{% url 'core:dashboard' %}">
+            <i class="material-icons">dashboard</i>
+            Dashboard
+          </a>
+        </li>
+
+        <li>
+          <a class="btn-flat waves-effect" href="{% url 'caja:pos' %}">
+            <i class="material-icons">point_of_sale</i>
+            Caja
+          </a>
+        </li>
+
+        <li>
+          <a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}">
+            <i class="material-icons">admin_panel_settings</i>
+            Admin Panel
+          </a>
+        </li>
+        <li>
           <span class="nav-chip">
             <i class="material-icons">store</i>
             {{ sucursal.nombre }}
+          </span>
+        </li>
+        <li>
+          <span class="nav-chip" id="nav_date">
+            <i class="material-icons">calendar_today</i>
+            --/--/----
           </span>
         </li>
 
@@ -432,20 +615,6 @@
             <i class="material-icons">schedule</i>
             --:--
           </span>
-        </li>
-
-        <li>
-          <a class="btn-flat waves-effect" href="{% url 'caja:pos' %}">
-            <i class="material-icons">add_shopping_cart</i>
-            Nueva venta
-          </a>
-        </li>
-
-        <li>
-          <a class="btn-flat waves-effect" href="/admin/" target="_blank">
-            <i class="material-icons">settings</i>
-            Admin
-          </a>
         </li>
 
         <li>
@@ -473,8 +642,9 @@
         <span class="white-text" style="opacity:.85;">{{ request.user.username|default:"Usuario" }}</span>
       </div>
     </li>
-    <li><a href="{% url 'caja:pos' %}"><i class="material-icons">add_shopping_cart</i>Nueva venta</a></li>
-    <li><a href="/admin/" target="_blank"><i class="material-icons">settings</i>Admin</a></li>
+    <li><a href="{% url 'core:dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
+    <li><a href="{% url 'caja:pos' %}"><i class="material-icons">point_of_sale</i>Caja</a></li>
+    <li><a href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
     <li><a href="/admin/logout/"><i class="material-icons">logout</i>Salir</a></li>
   </ul>
 
@@ -851,12 +1021,20 @@
       M.Sidenav.init(sidenavs);
 
       const el = document.getElementById("nav_clock");
+      const dateEl = document.getElementById("nav_date");
       function tick(){
-        if(!el) return;
         const d = new Date();
+        const dd = String(d.getDate()).padStart(2,'0');
+        const mo = String(d.getMonth() + 1).padStart(2,'0');
+        const yy = d.getFullYear();
         const hh = String(d.getHours()).padStart(2,'0');
         const mm = String(d.getMinutes()).padStart(2,'0');
-        el.innerHTML = '<i class="material-icons">schedule</i> ' + hh + ':' + mm;
+        if (dateEl) {
+          dateEl.innerHTML = '<i class="material-icons">calendar_today</i> ' + dd + '/' + mo + '/' + yy;
+        }
+        if (el) {
+          el.innerHTML = '<i class="material-icons">schedule</i> ' + hh + ':' + mm;
+        }
       }
       tick();
       setInterval(tick, 10000);

@@ -19,8 +19,13 @@
           <p><b>Fecha:</b> {{ venta.fecha|date:"d/m/Y H:i" }}</p>
           <p><b>Sucursal:</b> {{ venta.sucursal.nombre }}</p>
           <p><b>Estado:</b> {{ venta.get_estado_display }}</p>
-          <p><b>Medio (principal):</b> {{ venta.get_medio_pago_display }}</p>
-          <p><b>Total:</b> {{ venta.total|moneda_ar }}</p>
+          <p><b>Medios de pago:</b> {{ venta.medio_pago_ui }}</p>
+          {% if venta.cliente %}
+            <p><b>Cliente:</b> {{ venta.cliente.apellido }}, {{ venta.cliente.nombre }}{% if venta.cliente.dni %} ({{ venta.cliente.dni }}){% endif %}</p>
+          {% endif %}
+          <p><b>Total ítems:</b> {{ total_items|moneda_ar }}</p>
+          <p><b>Recargos:</b> {{ total_recargos|moneda_ar }}</p>
+          <p><b>Total final:</b> {{ venta.total|moneda_ar }}</p>
         </div>
       </div>
 
@@ -28,34 +33,52 @@
         <div class="card-content">
           <span class="card-title">Pagos</span>
 
+          <div class="responsive-table">
           <table class="striped">
             <thead>
               <tr>
                 <th>Tipo</th>
-                <th class="right-align">Monto</th>
+                <th>Detalle</th>
+                <th class="right-align">Base</th>
+                <th class="right-align">Recargo</th>
+                <th class="right-align">Total</th>
               </tr>
             </thead>
             <tbody>
               {% for p in pagos %}
                 <tr>
                   <td>
-                    {{ p.get_tipo_display }}
+                    <strong>{{ p.get_tipo_display }}</strong>
+                  </td>
+                  <td>
                     {% if p.tipo == "CREDITO" %}
                       <div class="grey-text" style="font-size:.85rem;">
-                        {{ p.cuotas }} cuotas · recargo {{ p.recargo_pct|moneda_ar }}% ({{ p.recargo_monto|moneda_ar }})
+                        {% if p.plan and p.plan.tarjeta %}{{ p.plan.tarjeta }} · {% endif %}
+                        {{ p.cuotas }} cuotas
+                        {% if p.recargo_pct|add:0 > 0 %} · Recargo {{ p.recargo_pct|floatformat:2 }}%{% endif %}
                       </div>
-                    {% endif %}
-                    {% if p.referencia %}
-                      <div class="grey-text" style="font-size:.85rem;">Ref: {{ p.referencia|moneda_ar }}</div>
+                    {% elif p.referencia %}
+                      <div class="grey-text" style="font-size:.85rem;">Ref: {{ p.referencia }}</div>
+                    {% else %}
+                      <span class="grey-text">—</span>
                     {% endif %}
                   </td>
                   <td class="right-align">{{ p.monto|moneda_ar }}</td>
+                  <td class="right-align">{{ p.recargo_monto_safe|moneda_ar }}</td>
+                  <td class="right-align"><strong>{{ p.total_pago_admin|moneda_ar }}</strong></td>
                 </tr>
               {% empty %}
-                <tr><td colspan="2" class="grey-text">Sin pagos registrados.</td></tr>
+                <tr><td colspan="5" class="grey-text">Sin pagos registrados.</td></tr>
               {% endfor %}
             </tbody>
           </table>
+          </div>
+          {% if pagos %}
+            <div class="right-align" style="margin-top:10px;">
+              <span class="grey-text">Total pagado:</span>
+              <strong>{{ total_pagado|moneda_ar }}</strong>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -80,7 +103,7 @@
                 {% for it in items %}
                   <tr>
                     <td>{{ it.variante.sku }}</td>
-                    <td>{{ it.variante.descripcion }}</td>
+                    <td>{{ it.nombre_admin }}</td>
                     <td class="right-align">{{ it.cantidad }}</td>
                     <td class="right-align">{{ it.precio_unitario|moneda_ar }}</td>
                     <td class="right-align">{{ it.subtotal|moneda_ar }}</td>

@@ -2,7 +2,7 @@
 {% load caja_extras %}
 
 <div class="input-field" style="margin-top:0;">
-  <select name="plan_id">
+  <select name="plan_id" onchange="this.form.requestSubmit();">
     <option value="" disabled {% if not selected_plan_id %}selected{% endif %}>
       Elegí cuotas
     </option>

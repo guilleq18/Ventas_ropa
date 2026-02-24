@@ -123,20 +123,15 @@
             hx-post="{% url 'caja:pagos_set_modal' forloop.counter0 %}"
             hx-target="#pago_modal_content"
             hx-swap="innerHTML"
-            hx-trigger="
-              change from:select,
-              change from:input[name='monto'],
-              blur from:input[name='monto'],
-              change from:input[name='referencia'],
-              blur from:input[name='referencia']
-            "
+            hx-trigger="submit"
+            hx-sync="#pago_modal_content:replace"
             style="margin:0;">
 
             {% csrf_token %}
 
             <div class="row" style="margin-bottom:0;">
               <div class="input-field col s12 m4" style="margin-top:0;">
-                <select name="tipo" {% if p.tipo_locked %}disabled{% endif %}>
+                <select name="tipo" {% if p.tipo_locked %}disabled{% endif %} onchange="this.form.requestSubmit();">
                   <option value="CONTADO" {% if p.tipo == "CONTADO" %}selected{% endif %}>Contado</option>
                   <option value="DEBITO" {% if p.tipo == "DEBITO" %}selected{% endif %}>Débito</option>
                   <option value="CREDITO" {% if p.tipo == "CREDITO" %}selected{% endif %}>Crédito</option>
@@ -159,6 +154,9 @@
                        inputmode="decimal"
                        placeholder="0,00"
                        value="{{ p.monto|num_ar }}"
+                       onchange="this.form.requestSubmit();"
+                       onblur="this.form.requestSubmit();"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault(); this.form.requestSubmit();}"
                        style="font-weight:600;">
                 <label class="active">Monto</label>
                 <small class="grey-text">Ej: 12.345,67</small>
@@ -256,7 +254,7 @@
               <div class="row" style="margin:0;">
                 <div class="input-field col s12 m4" style="margin-top:0;">
                   <i class="material-icons prefix grey-text">credit_card</i>
-                  <select name="tarjeta">
+                  <select name="tarjeta" onchange="this.form.requestSubmit();">
                     <option value="" disabled {% if not p.tarjeta %}selected{% endif %}>Elegí tarjeta</option>
                     {% for t in tarjetas %}
                       <option value="{{ t }}" {% if p.tarjeta == t %}selected{% endif %}>{{ t }}</option>
@@ -292,7 +290,10 @@
               <div class="row" style="margin:0;">
                 <div class="input-field col s12" style="margin-top:0;">
                   <i class="material-icons prefix grey-text">receipt</i>
-                  <input type="text" name="referencia" value="{{ p.referencia|default:'' }}">
+                  <input type="text" name="referencia" value="{{ p.referencia|default:'' }}"
+                         onchange="this.form.requestSubmit();"
+                         onblur="this.form.requestSubmit();"
+                         onkeydown="if(event.key==='Enter'){event.preventDefault(); this.form.requestSubmit();}">
                   <label class="active">Referencia / Operación</label>
                 </div>
               </div>

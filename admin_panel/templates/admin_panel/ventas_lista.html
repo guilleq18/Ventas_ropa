@@ -77,7 +77,7 @@
                 <td>{{ v.fecha|date:"d/m/Y"}}</td>
                 <td>{{ v.sucursal.nombre }}</td>
                 <td>{{ v.get_estado_display }}</td>
-                <td>{{ v.get_medio_pago_display }}</td>
+                <td>{{ v.medio_pago_ui }}</td>
                 <td class="right-align">{{ v.total|moneda_ar }}</td>
                 <td class="right-align">
                   <a class="btn-small" href="{% url 'admin_panel:ventas_detalle' v.id %}">Ver</a>

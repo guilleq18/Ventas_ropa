@@ -10,6 +10,7 @@
       <span class="card-title">Filtro</span>
 
       <form method="get">
+        <input type="hidden" name="vista" value="{{ vista }}">
         <div class="row" style="margin-bottom:0;">
           <div class="input-field col s12 m4">
             <input type="date" name="from" value="{{ from }}">
@@ -23,10 +24,37 @@
             <button class="btn" type="submit">
               <i class="material-icons left">search</i>Aplicar
             </button>
-            <a class="btn-flat" href="{% url 'admin_panel:balances' %}">Hoy</a>
+            <a class="btn-flat" href="{% url 'admin_panel:balances' %}?vista={{ vista }}">Hoy</a>
           </div>
         </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+          <span class="grey-text text-darken-1" style="align-self:center; font-size:.9rem;">Rangos rápidos:</span>
+          <a class="btn-flat waves-effect" href="{% url 'admin_panel:balances' %}?vista={{ vista }}&from={{ rangos_fecha.1m.from }}&to={{ rangos_fecha.1m.to }}">{{ rangos_fecha.1m.label }}</a>
+          <a class="btn-flat waves-effect" href="{% url 'admin_panel:balances' %}?vista={{ vista }}&from={{ rangos_fecha.3m.from }}&to={{ rangos_fecha.3m.to }}">{{ rangos_fecha.3m.label }}</a>
+          <a class="btn-flat waves-effect" href="{% url 'admin_panel:balances' %}?vista={{ vista }}&from={{ rangos_fecha.6m.from }}&to={{ rangos_fecha.6m.to }}">{{ rangos_fecha.6m.label }}</a>
+          <a class="btn-flat waves-effect" href="{% url 'admin_panel:balances' %}?vista={{ vista }}&from={{ rangos_fecha.1y.from }}&to={{ rangos_fecha.1y.to }}">{{ rangos_fecha.1y.label }}</a>
+        </div>
       </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-content" style="padding:10px 16px;">
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <a class="btn {% if vista == 'ventas' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+           href="{% url 'admin_panel:balances' %}?vista=ventas&from={{ from }}&to={{ to }}">
+          <i class="material-icons left">show_chart</i>Ventas
+        </a>
+        <a class="btn {% if vista == 'productos' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+           href="{% url 'admin_panel:balances' %}?vista=productos&from={{ from }}&to={{ to }}">
+          <i class="material-icons left">inventory_2</i>Productos
+        </a>
+        <a class="btn {% if vista == 'pagos' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+           href="{% url 'admin_panel:balances' %}?vista=pagos&from={{ from }}&to={{ to }}">
+          <i class="material-icons left">payments</i>Formas de pago
+        </a>
+      </div>
     </div>
   </div>
 
@@ -65,34 +93,71 @@
     </div>
   </div>
 
-  <div class="row">
-    <div class="col s12 l8">
-      <div class="card">
-        <div class="card-content">
-          <span class="card-title">Ventas por día</span>
-          <canvas id="chartDia" height="120"></canvas>
+  {% if vista == "ventas" %}
+    <div class="row">
+      <div class="col s12 l8">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Ventas por día</span>
+            <canvas id="chartDia" height="96"></canvas>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="col s12 l4">
-      <div class="card">
-        <div class="card-content">
-          <span class="card-title">Por medio de pago</span>
-          <canvas id="chartMedio" height="200"></canvas>
+      <div class="col s12 l4">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Ventas por sucursal</span>
+            <canvas id="chartSucursal" height="160"></canvas>
+            <div id="sucursalResumen" style="margin-top:12px;"></div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div class="col s12">
-      <div class="card">
-        <div class="card-content">
-          <span class="card-title">Por sucursal</span>
-          <canvas id="chartSucursal" height="90"></canvas>
+      <div class="col s12">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Ventas por hora del día</span>
+            <canvas id="chartHora" height="72"></canvas>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  {% elif vista == "productos" %}
+    <div class="row">
+      <div class="col s12 l6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Ventas por categoría</span>
+            <canvas id="chartCategoria" height="115"></canvas>
+            <div id="categoriaResumen" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col s12 l6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Ventas por producto (Top)</span>
+            <canvas id="chartProducto" height="115"></canvas>
+            <div id="productoResumen" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% elif vista == "pagos" %}
+    <div class="row">
+      <div class="col s12 l6">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title">Por forma de pago</span>
+            <canvas id="chartMedio" height="176"></canvas>
+            <div id="medioResumen" style="margin-top:12px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endif %}
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -100,45 +165,171 @@
   <script>
     const labelsDia = {{labels_dia_json|safe}};
     const dataTotalDia = {{data_total_dia_json|safe}};
+    const dataCantidadDia = {{ data_cantidad_dia_json|safe }};
+    const labelsHora = {{ labels_hora_json|safe }};
+    const dataHora = {{ data_hora_json|safe }};
+    const dataHoraCantidad = {{ data_hora_cantidad_json|safe }};
 
     const labelsMedio = {{ labels_medio_json|safe }};
     const dataMedio = {{ data_medio_json|safe}};
+    const dataMedioCantidadVentas = {{ data_medio_cantidad_ventas_json|safe }};
 
     const labelsSucursal = {{ labels_sucursal_json|safe}};
     const dataSucursal = {{ data_sucursal_json|safe}};
+    const dataSucursalCantidad = {{ data_sucursal_cantidad_json|safe}};
 
-    new Chart(document.getElementById('chartDia'), {
-      type: 'line',
-      data: {
-        labels: labelsDia,
-        datasets: [{ label: 'Total', data: dataTotalDia }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
+    const labelsCategoria = {{ labels_categoria_json|safe }};
+    const dataCategoria = {{ data_categoria_json|safe }};
+    const dataCategoriaCantidad = {{ data_categoria_cantidad_json|safe }};
+
+    const labelsProducto = {{ labels_producto_json|safe }};
+    const dataProducto = {{ data_producto_json|safe }};
+    const dataProductoCantidad = {{ data_producto_cantidad_json|safe }};
+
+    function fmtMoney(n) {
+      try {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 2 }).format(Number(n || 0));
+      } catch (e) {
+        return '$' + (Number(n || 0).toFixed(2));
       }
-    });
+    }
 
-    new Chart(document.getElementById('chartMedio'), {
-      type: 'doughnut',
-      data: {
-        labels: labelsMedio,
-        datasets: [{ data: dataMedio }]
-      },
-      options: { responsive: true }
-    });
-
-    new Chart(document.getElementById('chartSucursal'), {
-      type: 'bar',
-      data: {
-        labels: labelsSucursal,
-        datasets: [{ label: 'Total', data: dataSucursal }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
+    function renderResumenList(containerId, labels, montos, cantidades, qtyLabel) {
+      const el = document.getElementById(containerId);
+      if (!el) return;
+      if (!labels || !labels.length) {
+        el.innerHTML = '<p class="grey-text" style="margin:0;">Sin datos para el rango seleccionado.</p>';
+        return;
       }
-    });
+      const rows = labels.map((label, i) => (
+        `<tr>
+          <td style="padding:6px 8px;">${label}</td>
+          <td class="right-align" style="padding:6px 8px;">${fmtMoney(montos[i])}</td>
+          <td class="right-align" style="padding:6px 8px;">${Number(cantidades[i] || 0)}</td>
+        </tr>`
+      )).join('');
+      el.innerHTML = `
+        <table class="striped responsive-table" style="font-size:12px;">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th class="right-align">Monto</th>
+              <th class="right-align">${qtyLabel}</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+    const chartDiaEl = document.getElementById('chartDia');
+    if (chartDiaEl) {
+      new Chart(chartDiaEl, {
+        type: 'line',
+        data: {
+          labels: labelsDia,
+          datasets: [
+            { label: 'Monto', data: dataTotalDia, borderColor: '#1e88e5', backgroundColor: 'rgba(30,136,229,.15)', tension: .25, fill: true, yAxisID: 'y' },
+            { label: 'Cant. ventas', data: dataCantidadDia, borderColor: '#43a047', backgroundColor: 'rgba(67,160,71,.15)', tension: .25, fill: false, yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true, position: 'left' },
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    }
+
+    const chartSucursalEl = document.getElementById('chartSucursal');
+    if (chartSucursalEl) {
+      new Chart(chartSucursalEl, {
+        type: 'bar',
+        data: {
+          labels: labelsSucursal,
+          datasets: [{ label: 'Monto', data: dataSucursal, backgroundColor: '#26a69a' }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+      renderResumenList('sucursalResumen', labelsSucursal, dataSucursal, dataSucursalCantidad, 'Cant. ventas');
+    }
+
+    const chartHoraEl = document.getElementById('chartHora');
+    if (chartHoraEl) {
+      new Chart(chartHoraEl, {
+        type: 'bar',
+        data: {
+          labels: labelsHora,
+          datasets: [
+            { label: 'Monto', data: dataHora, backgroundColor: '#5c6bc0', yAxisID: 'y' },
+            { label: 'Cant. ventas', data: dataHoraCantidad, backgroundColor: '#c5cae9', yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true, position: 'left' },
+            y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } }
+          }
+        }
+      });
+    }
+
+    const chartCategoriaEl = document.getElementById('chartCategoria');
+    if (chartCategoriaEl) {
+      new Chart(chartCategoriaEl, {
+        type: 'doughnut',
+        data: {
+          labels: labelsCategoria,
+          datasets: [{ label: 'Monto', data: dataCategoria, backgroundColor: '#26a69a' }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true, position: 'bottom' } }
+        }
+      });
+      renderResumenList('categoriaResumen', labelsCategoria, dataCategoria, dataCategoriaCantidad, 'Cant. vendida');
+    }
+
+    const chartProductoEl = document.getElementById('chartProducto');
+    if (chartProductoEl) {
+      new Chart(chartProductoEl, {
+        type: 'bar',
+        data: {
+          labels: labelsProducto,
+          datasets: [{ label: 'Monto', data: dataProducto, backgroundColor: '#66bb6a' }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } }
+        }
+      });
+      renderResumenList('productoResumen', labelsProducto, dataProducto, dataProductoCantidad, 'Cant. vendida');
+    }
+
+    const chartMedioEl = document.getElementById('chartMedio');
+    if (chartMedioEl) {
+      new Chart(chartMedioEl, {
+        type: 'bar',
+        data: {
+          labels: labelsMedio,
+          datasets: [{ label: 'Monto vendido', data: dataMedio, backgroundColor: '#42a5f5' }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+      renderResumenList('medioResumen', labelsMedio, dataMedio, dataMedioCantidadVentas, 'Cant. ventas');
+    }
   </script>
 
 {% endblock %}

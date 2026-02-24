@@ -6,32 +6,122 @@
   <title>Dashboard | Sistema de Ventas</title>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
   <style>
-    body { background:#f3f4f6; }
+    :root{
+      --ui-bg: #f4e7e0;
+      --ui-shell: #efd8cd;
+      --ui-card: #f7eee8;
+      --ui-card-soft: #f2e0d4;
+      --ui-border: rgba(156, 103, 76, 0.18);
+      --ui-nav: #7b4f43;
+      --ui-nav-2: #6f463b;
+      --ui-text-soft: #7a6258;
+    }
+    body { background:var(--ui-bg); color:#3f2f29; }
     nav .brand-logo { font-size:1.2rem; font-weight:600; }
     .page-title { margin:18px 0 4px 0; font-weight:600; }
-    .muted { color:#546e7a; }
-    .card { border-radius:14px; }
+    .muted { color:var(--ui-text-soft); }
+    .card { border-radius:14px; background:var(--ui-card); border:1px solid var(--ui-border); }
     .kpi-title { font-size:.95rem; color:#546e7a; }
     .kpi-value { margin:6px 0 0 0; font-weight:700; }
-    .chip-soft { background:#e3f2fd; color:#0d47a1; font-weight:600; }
+    .kpi-title { color:var(--ui-text-soft); }
+    .chip-soft { background:#f2e0d4; color:#7b4f43; font-weight:600; }
     .btn-round { border-radius:10px; width:100%; }
     .table-wrap { overflow:auto; }
+    .card-panel{ border-radius:12px !important; border:1px solid var(--ui-border); box-shadow:none; }
+    .collection{ border-color: var(--ui-border); }
+    .collection .collection-item{ background:rgba(255,255,255,.3); border-bottom-color:rgba(156,103,76,.12); }
+    .app-nav .nav-wrapper{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .app-nav .brand-logo{
+      position: static !important;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      white-space:nowrap;
+    }
+    .app-nav .nav-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0;
+      flex-wrap:nowrap;
+      justify-content:flex-end;
+      flex:0 0 auto;
+      min-width:0;
+    }
+    .app-nav .nav-actions li{ list-style:none; }
+    .app-nav .nav-actions .btn-flat,
+    .app-nav .nav-actions .nav-chip{
+      white-space:nowrap;
+      flex-shrink:0;
+    }
+    .app-nav .nav-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border:1px solid rgba(255,255,255,.15);
+      border-radius:999px;
+      font-size:12px;
+      line-height:1;
+      color:#fff7f2;
+      background: rgba(255,255,255,.06);
+      white-space:nowrap;
+    }
+    .app-nav .nav-chip i{ font-size:18px; }
+    .app-nav .btn-flat{
+      color:#fff7f2;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      border-radius:10px;
+    }
+    .app-nav .btn-flat:hover{ background: rgba(255,255,255,.08); }
+    @media only screen and (max-width: 1200px){
+      #core_nav_date{ display:none; }
+    }
+    @media only screen and (max-width: 992px){
+      #core_nav_time{ display:none; }
+      .app-nav .nav-actions{ gap:4px; overflow-x:auto; scrollbar-width:none; }
+      .app-nav .nav-actions::-webkit-scrollbar{ display:none; }
+      .app-nav .btn-flat{ padding:0 8px; }
+    }
   </style>
 </head>
 
 <body>
 
-  <nav class="blue darken-3">
+  <nav class="app-nav" style="background:linear-gradient(180deg, var(--ui-nav) 0%, var(--ui-nav-2) 100%);">
     <div class="nav-wrapper container">
       <a class="brand-logo">Sistema de Ventas</a>
-      <ul class="right">
-        <li><a href="#" class="waves-effect">Usuario: {{ request.user.username }}</a></li>
-        <li><a href="{% url 'logout' %}" class="waves-effect">Salir</a></li>
+      <ul class="nav-actions">
+        <li><a class="btn-flat waves-effect" href="{% url 'core:dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
+        <li><a class="btn-flat waves-effect" href="{% url 'caja:pos' %}"><i class="material-icons">point_of_sale</i>Caja</a></li>
+        <li><a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
+        <li><span class="nav-chip" id="core_nav_date"><i class="material-icons">calendar_today</i>--/--/----</span></li>
+        <li><span class="nav-chip" id="core_nav_time"><i class="material-icons">schedule</i>--:--</span></li>
+        <li>
+          <a class="dropdown-trigger btn-flat waves-effect" href="#!" data-target="core_user_dd">
+            <i class="material-icons">account_circle</i>{{ request.user.username }}
+            <i class="material-icons right">arrow_drop_down</i>
+          </a>
+        </li>
       </ul>
     </div>
   </nav>
+
+  <ul id="core_user_dd" class="dropdown-content">
+    <li><a href="/admin/password_change/" target="_blank"><i class="material-icons">lock</i>Cambiar clave</a></li>
+    <li class="divider" tabindex="-1"></li>
+    <li><a href="{% url 'logout' %}"><i class="material-icons">logout</i>Salir</a></li>
+  </ul>
 
   <main class="container">
 
@@ -132,7 +222,7 @@
           <div class="card-content">
             <span class="card-title" style="font-size:1.1rem; font-weight:700;">Estado de caja</span>
 
-            <div class="card-panel blue lighten-5 blue-text text-darken-4" style="border-radius:12px;">
+            <div class="card-panel" style="background:#f2e0d4; color:#6f463b;">
               <div style="font-weight:700; font-size:1.1rem;">Saldo actual: $ {{ caja.saldo_actual }}</div>
               <div class="muted">Resumen del día</div>
             </div>
@@ -209,12 +299,12 @@
                 {% endfor %}
               </ul>
             {% else %}
-              <div class="card-panel green lighten-5 green-text text-darken-4" style="border-radius:12px;">
+              <div class="card-panel" style="background:#efe8da; color:#5d4a3f;">
                 Todo en orden. Sin alertas por ahora.
               </div>
             {% endif %}
 
-            <div class="card-panel amber lighten-5 amber-text text-darken-4" style="border-radius:12px;">
+            <div class="card-panel" style="background:#f4e7d7; color:#6d5548;">
               Pendientes sugeridos:
               <ul style="margin:8px 0 0 18px;">
                 <li>Controlar stock mínimo</li>
@@ -231,5 +321,28 @@
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.M && M.Dropdown) {
+        M.Dropdown.init(document.querySelectorAll('.dropdown-trigger'), { coverTrigger:false, constrainWidth:false });
+      }
+    });
+    (function () {
+      const dateEl = document.getElementById('core_nav_date');
+      const timeEl = document.getElementById('core_nav_time');
+      function tick(){
+        const d = new Date();
+        const dd = String(d.getDate()).padStart(2,'0');
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2,'0');
+        const mi = String(d.getMinutes()).padStart(2,'0');
+        if (dateEl) dateEl.innerHTML = '<i class="material-icons">calendar_today</i> ' + dd + '/' + mm + '/' + yyyy;
+        if (timeEl) timeEl.innerHTML = '<i class="material-icons">schedule</i> ' + hh + ':' + mi;
+      }
+      tick();
+      setInterval(tick, 10000);
+    })();
+  </script>
 </body>
 </html>

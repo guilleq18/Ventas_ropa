@@ -1,0 +1,38 @@
+{% load caja_extras %}
+
+{% if not q %}
+  <div class="grey-text" style="font-size:12px;">Escribí para buscar.</div>
+{% elif not clientes %}
+  <div class="grey-text" style="font-size:12px;">Sin resultados.</div>
+{% else %}
+  <ul class="collection" style="margin:0;">
+    {% for c in clientes %}
+      {% with cc=cc_map|get_item:c.id %}
+      <li class="collection-item" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <div>
+          <div style="font-weight:600;">{{ c.apellido }}, {{ c.nombre }}</div>
+          <div class="grey-text" style="font-size:12px;">DNI: {{ c.dni }}</div>
+
+          {% if cc and cc.activa %}
+            <div class="green-text" style="font-size:12px;">CC activa</div>
+          {% else %}
+            <div class="red-text" style="font-size:12px;">Sin CC activa</div>
+          {% endif %}
+        </div>
+
+        <form
+          hx-post="{% url 'caja:cc_pick_cliente_modal' idx c.id %}"
+          hx-target="#pago_modal_content"
+          hx-swap="innerHTML"
+          style="margin:0;"
+        >
+          {% csrf_token %}
+          <button type="submit" class="btn-small teal waves-effect waves-light">
+            Elegir
+          </button>
+        </form>
+      </li>
+      {% endwith %}
+    {% endfor %}
+  </ul>
+{% endif %}

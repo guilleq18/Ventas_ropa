@@ -12,14 +12,20 @@
           <div>
             <div style="font-weight:600;">{{ v.sku }} — {{ v.producto.nombre }}</div>
             <div style="margin-top:6px;">
+              <span class="grey-text" style="margin-left:8px;">{{ sucursal.nombre }}</span>
               {% with stock=stock_map|get_item:v.id %}
-                {% if stock|default:0|add:0 > 0 %}
-                  <span class="new badge green lighten-4 green-text text-darken-2" data-badge-caption="Stock: {{ stock }}"></span>
-                {% else %}
-                  <span class="new badge red lighten-4 red-text text-darken-2" data-badge-caption="Sin stock"></span>
+                {% if not permitir_sin_stock %}
+                  {% if stock|default:0|add:0 <= 0 %}
+                    <span style="margin-left:8px;">
+                      <span class="chip red lighten-4 red-text text-darken-4" style="height:20px; line-height:20px; font-size:12px;">Sin stock</span>
+                    </span>
+                  {% else %}
+                    <span style="margin-left:8px;">
+                      <span class="chip green lighten-5 green-text text-darken-2" style="height:20px; line-height:20px; font-size:12px;">Stock: {{ stock }}</span>
+                    </span>
+                  {% endif %}
                 {% endif %}
               {% endwith %}
-              <span class="grey-text" style="margin-left:8px;">{{ sucursal.nombre }}</span>
             </div>
           </div>
 
@@ -32,10 +38,15 @@
                   style="margin-top:8px;">
               {% csrf_token %}
               {% with stock=stock_map|get_item:v.id %}
-                <button class="btn-small {% if stock|default:0|add:0 > 0 %}blue{% else %}grey{% endif %}"
-                        {% if stock|default:0|add:0 <= 0 %}disabled{% endif %}>
-                  Agregar
-                </button>
+                {% if permitir_sin_stock %}
+                  <button type="submit" class="btn-small blue" aria-disabled="false" title="Agregar">Agregar</button>
+                {% else %}
+                  <button type="submit"
+                          class="btn-small {% if stock|default:0|add:0 > 0 %}blue{% else %}grey{% endif %}"
+                          {% if stock|default:0|add:0 <= 0 %}disabled aria-disabled="true" title="Sin stock"{% else %}aria-disabled="false" title="Agregar"{% endif %}>
+                    Agregar
+                  </button>
+                {% endif %}
               {% endwith %}
             </form>
           </div>
