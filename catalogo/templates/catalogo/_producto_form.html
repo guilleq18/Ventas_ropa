@@ -55,7 +55,11 @@
   // Re-init Materialize solo dentro del modal
   if (typeof M !== "undefined") {
     M.updateTextFields();
-    M.FormSelect.init(document.querySelectorAll('#modal_body select'));
+    if (typeof initCatalogoSelects === "function") {
+      initCatalogoSelects(document.getElementById('modal_body'));
+    } else {
+      M.FormSelect.init(document.querySelectorAll('#modal_body select'));
+    }
     const ta = document.querySelector('#modal_body textarea.materialize-textarea');
     if (ta && M.textareaAutoResize) M.textareaAutoResize(ta);
   }

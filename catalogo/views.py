@@ -8,6 +8,7 @@ from django.db.models import Sum
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_http_methods
 
 from core.models import Sucursal
@@ -178,6 +179,7 @@ def _render_variantes_panel(request, producto_id: int) -> HttpResponse:
 
 @login_required
 @require_http_methods(["GET"])
+@xframe_options_sameorigin
 def productos(request):
     """Pantalla principal de catálogo (productos a la izquierda, panel variantes a la derecha)."""
     productos = Producto.objects.select_related("categoria").order_by("-created_at")[:100]

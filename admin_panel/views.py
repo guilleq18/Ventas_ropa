@@ -1,10 +1,13 @@
 from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from core.models import AppSetting
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Value, Count, F, DecimalField, ExpressionWrapper
-from datetime import datetime
+from datetime import datetime, timedelta, time
 from django.utils import timezone
 from django.db.models.functions import TruncDate, ExtractHour
 
@@ -12,10 +15,13 @@ from django import forms
 from decimal import Decimal
 from django.db.models.functions import Coalesce
 from django.db import transaction, IntegrityError
+from django.db.models.deletion import ProtectedError
 import calendar
 from cuentas_corrientes.models import Cliente, CuentaCorriente
 from django.contrib import messages
 from admin_panel.services import get_ventas_flags, set_bool_setting
+from admin_panel.forms import AdminPanelUserForm, RoleForm, AdminPanelCategoriaForm
+from catalogo.models import Categoria
 
 
 
@@ -29,6 +35,28 @@ def _parse_date(value: str):
         return datetime.strptime(value, "%Y-%m-%d").date()
     except ValueError:
         return None
+
+
+def _localize_if_needed(dt: datetime) -> datetime:
+    """Convierte a aware en timezone local solo si el proyecto usa TZ."""
+    if timezone.is_aware(timezone.now()) and timezone.is_naive(dt):
+        return timezone.make_aware(dt, timezone.get_current_timezone())
+    return dt
+
+
+def _apply_local_date_range(qs, field_name: str, date_from=None, date_to=None):
+    """
+    Aplica rango por fecha a DateTimeField respetando timezone local.
+    Usa [inicio_del_dia, inicio_del_dia_siguiente) para incluir completo el 'hasta'.
+    """
+    filters = {}
+    if date_from:
+        start_dt = _localize_if_needed(datetime.combine(date_from, time.min))
+        filters[f"{field_name}__gte"] = start_dt
+    if date_to:
+        end_exclusive = _localize_if_needed(datetime.combine(date_to + timedelta(days=1), time.min))
+        filters[f"{field_name}__lt"] = end_exclusive
+    return qs.filter(**filters) if filters else qs
 
 
 def _shift_months(d, months: int):
@@ -113,10 +141,7 @@ def balances(request):
 
     qs = Venta.objects.select_related("sucursal").filter(estado=Venta.Estado.CONFIRMADA)
 
-    if date_from:
-        qs = qs.filter(fecha__date__gte=date_from)
-    if date_to:
-        qs = qs.filter(fecha__date__lte=date_to)
+    qs = _apply_local_date_range(qs, "fecha", date_from, date_to)
 
     # KPIs
     kpi = qs.aggregate(
@@ -141,10 +166,7 @@ def balances(request):
     # Por medio de pago (real según VentaPago del POS; incluye recargos de crédito)
     pago_total_field = DecimalField(max_digits=14, decimal_places=2)
     pagos_qs = VentaPago.objects.filter(venta__estado=Venta.Estado.CONFIRMADA)
-    if date_from:
-        pagos_qs = pagos_qs.filter(venta__fecha__date__gte=date_from)
-    if date_to:
-        pagos_qs = pagos_qs.filter(venta__fecha__date__lte=date_to)
+    pagos_qs = _apply_local_date_range(pagos_qs, "venta__fecha", date_from, date_to)
 
     por_medio_pagos = (
         pagos_qs.values("tipo")
@@ -211,10 +233,7 @@ def balances(request):
 
     # Ventas por categoría / producto (desde items reales del POS)
     items_qs = VentaItem.objects.filter(venta__estado=Venta.Estado.CONFIRMADA)
-    if date_from:
-        items_qs = items_qs.filter(venta__fecha__date__gte=date_from)
-    if date_to:
-        items_qs = items_qs.filter(venta__fecha__date__lte=date_to)
+    items_qs = _apply_local_date_range(items_qs, "venta__fecha", date_from, date_to)
 
     por_categoria = (
         items_qs.values("variante__producto__categoria__nombre")
@@ -298,10 +317,7 @@ def ventas_lista(request):
 
     qs = Venta.objects.select_related("sucursal").prefetch_related("pagos").all()
 
-    if date_from:
-        qs = qs.filter(fecha__date__gte=date_from)
-    if date_to:
-        qs = qs.filter(fecha__date__lte=date_to)
+    qs = _apply_local_date_range(qs, "fecha", date_from, date_to)
 
     if sucursal_id.isdigit():
         qs = qs.filter(sucursal_id=int(sucursal_id))
@@ -501,11 +517,217 @@ def dashboard(request):
 
 @login_required
 def catalogo_home(request):
-    return render(request, "admin_panel/catalogo_home.html")
+    active_tab = (request.GET.get("tab") or "productos").strip().lower()
+    if active_tab not in {"productos", "categorias"}:
+        active_tab = "productos"
+
+    edit_categoria = None
+    categoria_form = AdminPanelCategoriaForm(prefix="cat")
+    open_categoria_modal = (request.GET.get("new_categoria") == "1")
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "categoria_save":
+            cat_id = request.POST.get("categoria_id")
+            instance = None
+            if cat_id:
+                instance = get_object_or_404(Categoria, id=cat_id)
+                edit_categoria = instance
+
+            categoria_form = AdminPanelCategoriaForm(request.POST, instance=instance, prefix="cat")
+            if categoria_form.is_valid():
+                categoria = categoria_form.save()
+                msg = (
+                    f"Categoría creada: {categoria.nombre}."
+                    if not cat_id else
+                    f"Categoría actualizada: {categoria.nombre}."
+                )
+                messages.success(request, msg)
+                return redirect(f"{reverse('admin_panel:catalogo_home')}?tab=categorias")
+
+            active_tab = "categorias"
+            open_categoria_modal = True
+
+        elif action == "categoria_toggle":
+            categoria = get_object_or_404(Categoria, id=request.POST.get("categoria_id"))
+            categoria.activa = not categoria.activa
+            categoria.save(update_fields=["activa"])
+            estado = "activada" if categoria.activa else "desactivada"
+            messages.success(request, f"Categoría {categoria.nombre} {estado}.")
+            return redirect(f"{reverse('admin_panel:catalogo_home')}?tab=categorias")
+
+        elif action == "categoria_delete":
+            categoria = get_object_or_404(Categoria, id=request.POST.get("categoria_id"))
+            nombre = categoria.nombre
+            try:
+                categoria.delete()
+                messages.success(request, f"Categoría eliminada: {nombre}.")
+            except ProtectedError:
+                messages.error(
+                    request,
+                    f"No se puede eliminar {nombre}: tiene productos asociados.",
+                )
+            return redirect(f"{reverse('admin_panel:catalogo_home')}?tab=categorias")
+
+        else:
+            messages.error(request, "Acción no reconocida.")
+            return redirect(f"{reverse('admin_panel:catalogo_home')}?tab={active_tab}")
+
+    if request.method == "GET":
+        edit_categoria_id = request.GET.get("edit_categoria")
+        if edit_categoria_id:
+            edit_categoria = get_object_or_404(Categoria, id=edit_categoria_id)
+            categoria_form = AdminPanelCategoriaForm(instance=edit_categoria, prefix="cat")
+            active_tab = "categorias"
+            open_categoria_modal = True
+
+    categorias = (
+        Categoria.objects
+        .annotate(productos_count=Count("producto"))
+        .order_by("-activa", "nombre")
+    )
+
+    return render(request, "admin_panel/catalogo_home.html", {
+        "active_tab": active_tab,
+        "categorias": categorias,
+        "categoria_form": categoria_form,
+        "edit_categoria": edit_categoria,
+        "open_categoria_modal": open_categoria_modal,
+        "catalogo_productos_url": reverse("catalogo:productos"),
+    })
+
+
+def _admin_panel_redirect_with_tab(tab: str, **params):
+    base = reverse("admin_panel:usuarios_lista")
+    query = {"tab": tab or "usuarios"}
+    query.update({k: v for k, v in params.items() if v not in (None, "", [])})
+    if not query:
+        return redirect(base)
+    from urllib.parse import urlencode
+    return redirect(f"{base}?{urlencode(query)}")
+
 
 @login_required
 def usuarios_lista(request):
-    return render(request, "admin_panel/usuarios_lista.html")
+    User = get_user_model()
+    active_tab = (request.GET.get("tab") or "usuarios").strip().lower()
+    if active_tab not in {"usuarios", "roles"}:
+        active_tab = "usuarios"
+
+    edit_user = None
+    edit_role = None
+    user_modal_form = AdminPanelUserForm(prefix="user_modal")
+    role_form = RoleForm(prefix="role")
+    open_user_modal = (request.GET.get("new_user") == "1")
+    open_role_modal = (request.GET.get("new_role") == "1")
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "user_modal_save":
+            user_id = request.POST.get("user_id")
+            instance = None
+            if user_id:
+                instance = get_object_or_404(User, id=user_id)
+                edit_user = instance
+
+            user_modal_form = AdminPanelUserForm(request.POST, instance=instance, prefix="user_modal")
+            if user_modal_form.is_valid():
+                user_modal_form.save()
+                msg = "Usuario creado correctamente." if not user_id else "Usuario actualizado correctamente."
+                messages.success(request, msg)
+                return _admin_panel_redirect_with_tab("usuarios")
+            active_tab = "usuarios"
+            open_user_modal = True
+
+        elif action == "user_toggle_active":
+            user = get_object_or_404(User, id=request.POST.get("user_id"))
+            if user == request.user and user.is_active:
+                messages.warning(request, "No podés desactivarte a vos mismo desde esta pantalla.")
+            else:
+                user.is_active = not user.is_active
+                user.save(update_fields=["is_active"])
+                state = "activado" if user.is_active else "desactivado"
+                messages.success(request, f"Usuario {user.username} {state}.")
+            return _admin_panel_redirect_with_tab("usuarios")
+
+        elif action == "role_save":
+            role_id = request.POST.get("role_id")
+            instance = None
+            if role_id:
+                instance = get_object_or_404(Group, id=role_id)
+                edit_role = instance
+
+            role_form = RoleForm(request.POST, instance=instance, prefix="role")
+            if role_form.is_valid():
+                role = role_form.save()
+                role.permissions.set(role_form.cleaned_data.get("permissions") or [])
+                msg = "Rol creado correctamente." if not role_id else "Rol actualizado correctamente."
+                messages.success(request, msg)
+                return _admin_panel_redirect_with_tab("roles")
+            active_tab = "roles"
+            open_role_modal = True
+
+        elif action == "role_delete":
+            role = get_object_or_404(Group, id=request.POST.get("role_id"))
+            if role.user_set.exists():
+                messages.error(
+                    request,
+                    f"No se puede eliminar el rol {role.name}: tiene usuarios asignados.",
+                )
+            else:
+                role_name = role.name
+                role.delete()
+                messages.success(request, f"Rol eliminado: {role_name}.")
+            return _admin_panel_redirect_with_tab("roles")
+
+        else:
+            messages.error(request, "Acción no reconocida.")
+            return _admin_panel_redirect_with_tab(active_tab)
+
+    if request.method == "GET":
+        edit_user_id = request.GET.get("edit_user")
+        if edit_user_id:
+            edit_user = get_object_or_404(User, id=edit_user_id)
+            user_modal_form = AdminPanelUserForm(instance=edit_user, prefix="user_modal")
+            open_user_modal = True
+
+        edit_role_id = request.GET.get("edit_role")
+        if edit_role_id:
+            edit_role = get_object_or_404(Group, id=edit_role_id)
+            role_form = RoleForm(instance=edit_role, prefix="role")
+            open_role_modal = True
+
+    usuarios = (
+        User.objects.all()
+        .select_related("panel_profile", "panel_profile__sucursal")
+        .prefetch_related("groups")
+        .order_by("username")
+    )
+
+    roles = (
+        Group.objects.all()
+        .prefetch_related("permissions__content_type")
+        .prefetch_related("user_set")
+        .order_by("name")
+    )
+
+    return render(
+        request,
+        "admin_panel/usuarios_lista.html",
+        {
+            "active_tab": active_tab,
+            "usuarios": usuarios,
+            "roles": roles,
+            "user_modal_form": user_modal_form,
+            "role_form": role_form,
+            "edit_user": edit_user,
+            "edit_role": edit_role,
+            "open_user_modal": open_user_modal,
+            "open_role_modal": open_role_modal,
+        },
+    )
 
 #cuenta corriente
 from cuentas_corrientes.models import CuentaCorriente, MovimientoCuentaCorriente

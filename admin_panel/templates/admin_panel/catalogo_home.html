@@ -2,8 +2,452 @@
 {% block title %}Catálogo{% endblock %}
 {% block header_title %}Catálogo{% endblock %}
 {% block content %}
-  <div class="card"><div class="card-content">
-    <span class="card-title">Catálogo</span>
-    <p>Sección lista para integrar el CRUD existente.</p>
-  </div></div>
+<style>
+  .catalogo-admin-card { border-radius: 14px; }
+  .catalogo-admin-card .card-content { padding-top: 10px; }
+  .catalogo-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .catalogo-subtle { color: #6b7280; font-size: 13px; }
+  .soft-panel {
+    border: 1px solid rgba(121, 85, 72, .12);
+    border-radius: 12px;
+    padding: 14px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(60, 35, 20, .04);
+  }
+  .soft-panel h6 { margin: 0 0 14px; font-weight: 700; }
+  .table-wrap { overflow: auto; }
+  .compact-table td, .compact-table th {
+    padding: 10px 8px;
+    vertical-align: top;
+    line-height: 1.35;
+  }
+  .compact-table td { white-space: normal; }
+  .inline-form { display: inline; }
+  .field-errors { color: #c62828; font-size: 12px; margin-top: 4px; }
+  .category-panel {
+    background:
+      radial-gradient(circle at top right, rgba(255,255,255,.55), transparent 42%),
+      #fff;
+    border-color: rgba(121, 85, 72, .14);
+    box-shadow: 0 8px 20px rgba(60, 35, 20, .06);
+  }
+  .category-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(121, 85, 72, .10);
+    background: rgba(245, 236, 231, .65);
+  }
+  .category-panel-head h6 {
+    margin: 0 0 3px;
+    color: #4e342e;
+    font-weight: 800;
+  }
+  .category-panel-head p {
+    margin: 0;
+    color: #7b6259;
+    font-size: 12px;
+  }
+  .category-count-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(121, 85, 72, .10);
+    color: #5d4037;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .category-table {
+    border: 1px solid rgba(121, 85, 72, .10);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .category-table thead {
+    background: rgba(121, 85, 72, .08);
+  }
+  .category-table th {
+    color: #5d4037;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(121, 85, 72, .10);
+  }
+  .category-table td {
+    border-bottom: 1px solid rgba(121, 85, 72, .06);
+  }
+  .category-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .category-table tbody tr:hover {
+    background: rgba(121, 85, 72, .035);
+  }
+  .iframe-shell {
+    border: 1px solid rgba(121, 85, 72, .12);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(60, 35, 20, .05);
+  }
+  .iframe-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(121, 85, 72, .10);
+    background: #faf7f5;
+  }
+  .catalogo-embed-frame {
+    width: 100%;
+    height: calc(100vh - 270px);
+    min-height: 560px;
+    border: 0;
+    display: block;
+    background: #fff;
+  }
+  .category-status-chip {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .category-status-chip.active {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .category-status-chip.inactive {
+    background: #ffebee;
+    color: #c62828;
+  }
+  .category-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .category-icon-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6d4c41;
+    background: rgba(121, 85, 72, .06);
+    border: 1px solid rgba(121, 85, 72, .08);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .category-icon-btn:hover {
+    background: rgba(121, 85, 72, .12);
+    color: #4e342e;
+  }
+  .category-icon-btn.delete {
+    color: #c62828;
+    background: rgba(198, 40, 40, .05);
+    border-color: rgba(198, 40, 40, .10);
+  }
+  .category-icon-btn.delete:hover {
+    background: rgba(198, 40, 40, .10);
+  }
+  #modal-categoria {
+    background: #f7eee8;
+    border: 1px solid rgba(121, 85, 72, .14);
+    box-shadow: 0 16px 38px rgba(80, 52, 40, .18);
+  }
+  #modal-categoria .modal-content {
+    background:
+      radial-gradient(circle at top right, rgba(255,255,255,.52), transparent 40%),
+      #f7eee8;
+    padding: 16px 18px 12px;
+  }
+  #modal-categoria .modal-title {
+    margin: 0;
+    color: #4e342e;
+    font-weight: 800;
+    letter-spacing: .2px;
+  }
+  #modal-categoria .modal-subtitle {
+    color: #7b6259;
+    margin-top: 6px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  #modal-categoria .modal-form-shell {
+    border: 1px solid rgba(121, 85, 72, .10);
+    border-radius: 12px;
+    background: rgba(255,255,255,.62);
+    padding: 12px;
+  }
+  #modal-categoria .input-field input[type=text] {
+    border-bottom: 1px solid rgba(121, 85, 72, .22) !important;
+    box-shadow: none !important;
+  }
+  #modal-categoria .input-field input[type=text]:focus {
+    border-bottom: 1px solid #8d6e63 !important;
+    box-shadow: 0 1px 0 0 #8d6e63 !important;
+  }
+  #modal-categoria .input-field input[type=text]:focus + label {
+    color: #6d4c41 !important;
+  }
+  #modal-categoria .modal-footer {
+    background: linear-gradient(180deg, rgba(242,224,212,.9), rgba(247,238,232,.95));
+    border-top: 1px solid rgba(121, 85, 72, .12);
+    padding: 10px 14px;
+  }
+  #modal-categoria .modal-footer .btn,
+  #modal-categoria .modal-footer .btn-flat {
+    border-radius: 10px;
+  }
+  #modal-categoria p > label span {
+    color: #5d4037;
+    font-weight: 600;
+  }
+  #modal-categoria p > label span::before,
+  #modal-categoria p > label span::after {
+    border-radius: 4px;
+  }
+  .modal.modal-fixed-footer {
+    width: min(760px, 92vw) !important;
+    left: 50% !important;
+    right: auto !important;
+    margin: 0 !important;
+    transform: translateX(-50%) !important;
+    max-height: 88vh;
+    border-radius: 14px;
+  }
+  .modal.modal-fixed-footer .modal-content {
+    width: 100%;
+  }
+  @media (max-width: 900px) {
+    .catalogo-embed-frame {
+      height: calc(100vh - 300px);
+      min-height: 480px;
+    }
+  }
+</style>
+
+<div class="card catalogo-admin-card">
+  <div class="card-content">
+    <div class="catalogo-toolbar">
+      <div>
+        <span class="card-title" style="margin-bottom:4px;">Gestión de Catálogo</span>
+        <div class="catalogo-subtle">
+          Productos reutiliza el módulo actual de catálogo. Categorías se administra desde este panel.
+        </div>
+      </div>
+
+      {% if active_tab == "categorias" %}
+        <a href="{% url 'admin_panel:catalogo_home' %}?tab=categorias&new_categoria=1"
+           class="btn brown darken-1 waves-effect waves-light">
+          <i class="material-icons left">add</i>Crear categoría
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="card" style="margin:0 0 14px 0;">
+      <div class="card-content" style="padding:10px 16px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a class="btn {% if active_tab == 'productos' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+             href="{% url 'admin_panel:catalogo_home' %}?tab=productos">
+            <i class="material-icons left">inventory_2</i>Productos
+          </a>
+          <a class="btn {% if active_tab == 'categorias' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+             href="{% url 'admin_panel:catalogo_home' %}?tab=categorias">
+            <i class="material-icons left">category</i>Categorías
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-productos" {% if active_tab != 'productos' %}style="display:none;"{% endif %}>
+      <div class="iframe-shell">
+        <div class="iframe-toolbar">
+          <div>
+            <strong style="color:#4e342e;">Productos y variantes</strong>
+            <div class="catalogo-subtle">Vista embebida del módulo de catálogo actual para mantener todo el flujo funcionando.</div>
+          </div>
+          <button type="button" class="btn-flat waves-effect" onclick="reloadCatalogoFrame()">
+            <i class="material-icons left">refresh</i>Recargar
+          </button>
+        </div>
+        <iframe
+          id="catalogo_embed_frame"
+          class="catalogo-embed-frame"
+          src="{{ catalogo_productos_url }}"
+          title="Módulo de catálogo"></iframe>
+      </div>
+    </div>
+
+    <div id="tab-categorias" {% if active_tab != 'categorias' %}style="display:none;"{% endif %}>
+      <div class="row">
+        <div class="col s12 l10 offset-l1">
+          <div class="soft-panel category-panel">
+            <div class="category-panel-head">
+              <div>
+                <h6>Categorías</h6>
+                <p>Organizá productos por categoría y controlá si están activas para uso en catálogo.</p>
+              </div>
+              <div class="category-count-chip">
+                <i class="material-icons tiny">category</i>
+                {{ categorias|length }} categorías
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="striped compact-table category-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th style="width:120px;">Productos</th>
+                    <th style="width:120px;">Estado</th>
+                    <th style="width:180px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for categoria in categorias %}
+                    <tr>
+                      <td style="font-weight:600;">{{ categoria.nombre }}</td>
+                      <td>{{ categoria.productos_count }}</td>
+                      <td>
+                        {% if categoria.activa %}
+                          <span class="category-status-chip active">Activa</span>
+                        {% else %}
+                          <span class="category-status-chip inactive">Inactiva</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="category-actions">
+                          <a href="{% url 'admin_panel:catalogo_home' %}?tab=categorias&edit_categoria={{ categoria.id }}"
+                             class="category-icon-btn waves-effect"
+                             title="Editar categoría">
+                            <i class="material-icons">edit</i>
+                          </a>
+
+                          <form method="post" class="inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="categoria_toggle">
+                            <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+                            <button type="submit"
+                                    class="category-icon-btn waves-effect"
+                                    title="{% if categoria.activa %}Desactivar{% else %}Activar{% endif %}">
+                              <i class="material-icons">{% if categoria.activa %}toggle_off{% else %}toggle_on{% endif %}</i>
+                            </button>
+                          </form>
+
+                          <form method="post" class="inline-form" onsubmit="return confirm('¿Eliminar la categoría {{ categoria.nombre|escapejs }}?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="categoria_delete">
+                            <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+                            <button type="submit" class="category-icon-btn delete waves-effect" title="Eliminar categoría">
+                              <i class="material-icons">delete</i>
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="4" class="catalogo-subtle">No hay categorías cargadas.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-categoria" class="modal modal-fixed-footer">
+  <div class="modal-content">
+    <h5 class="modal-title">{% if edit_categoria %}Editar categoría{% else %}Crear categoría{% endif %}</h5>
+    <p class="modal-subtitle">
+      {% if edit_categoria %}
+        Actualizá el nombre o estado de <strong>{{ edit_categoria.nombre }}</strong>.
+      {% else %}
+        Las categorías se usan en el alta y organización de productos.
+      {% endif %}
+    </p>
+
+    <form id="form-categoria" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="categoria_save">
+      {% if edit_categoria %}
+        <input type="hidden" name="categoria_id" value="{{ edit_categoria.id }}">
+      {% endif %}
+
+      <div class="modal-form-shell">
+        <div class="input-field">
+          {{ categoria_form.nombre }}
+          <label for="{{ categoria_form.nombre.id_for_label }}" class="active">Nombre</label>
+          {% for err in categoria_form.nombre.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+        </div>
+
+        <p style="margin:10px 0 0;">
+          <label>
+            {{ categoria_form.activa }}
+            <span>Categoría activa</span>
+          </label>
+        </p>
+        {% for err in categoria_form.activa.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+
+        {% if categoria_form.non_field_errors %}
+          {% for err in categoria_form.non_field_errors %}
+            <div class="card-panel red lighten-4 red-text text-darken-4" style="padding:10px 12px; margin-bottom:0;">{{ err }}</div>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <a href="{% url 'admin_panel:catalogo_home' %}?tab=categorias" class="btn-flat waves-effect">
+      {% if edit_categoria %}Cancelar edición{% else %}Cancelar{% endif %}
+    </a>
+    <button type="submit" form="form-categoria" class="btn brown darken-1 waves-effect waves-light">
+      <i class="material-icons left">{% if edit_categoria %}save{% else %}add{% endif %}</i>
+      {% if edit_categoria %}Guardar cambios{% else %}Crear categoría{% endif %}
+    </button>
+  </div>
+</div>
+
+<script>
+  function reloadCatalogoFrame() {
+    var frame = document.getElementById("catalogo_embed_frame");
+    if (!frame) return;
+    frame.src = frame.src;
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    {% if open_categoria_modal and active_tab == 'categorias' %}
+    setTimeout(function () {
+      var modalEl = document.getElementById("modal-categoria");
+      if (!modalEl || !window.M || !M.Modal) return;
+      var instance = M.Modal.getInstance(modalEl) || M.Modal.init(modalEl, {});
+      instance.open();
+    }, 0);
+    {% endif %}
+  });
+</script>
 {% endblock %}

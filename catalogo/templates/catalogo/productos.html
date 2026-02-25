@@ -16,12 +16,297 @@
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
   <style>
-    .btn, .btn-large { height: 48px; line-height: 48px; }
-    .page-wrap { padding: 12px; }
-    .modal { max-height: 92%; }
+    :root{
+      --cat-bg: #f4e7e0;
+      --cat-shell: #efd8cd;
+      --cat-card: #f7eee8;
+      --cat-card-head: #f2e0d4;
+      --cat-border: rgba(121, 85, 72, 0.16);
+      --cat-divider: rgba(121, 85, 72, 0.12);
+      --cat-text: #4e342e;
+      --cat-muted: #7b6259;
+      --cat-shadow: 0 10px 24px rgba(106, 68, 51, 0.10);
+      --cat-shadow-soft: 0 6px 18px rgba(106, 68, 51, 0.07);
+    }
+    * { box-sizing: border-box; }
+    body{
+      margin: 0;
+      background: radial-gradient(circle at top right, rgba(255,255,255,.45), transparent 42%), var(--cat-bg);
+      color: var(--cat-text);
+    }
+    .page-wrap{
+      padding: 14px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+    .catalogo-shell{
+      border: 1px solid rgba(121, 85, 72, .10);
+      border-radius: 16px;
+      background: var(--cat-shell);
+      box-shadow: var(--cat-shadow-soft);
+      padding: 12px 12px 8px;
+    }
+    .catalogo-head{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+      padding: 4px 2px 0;
+    }
+    .catalogo-head h4{
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--cat-text);
+      letter-spacing: .2px;
+    }
+    .catalogo-head p{
+      margin: 4px 0 0;
+      color: var(--cat-muted);
+      font-size: 12px;
+    }
+    .catalogo-head .chip{
+      margin: 0;
+      background: rgba(255,255,255,.55);
+      color: var(--cat-text);
+      border: 1px solid rgba(121, 85, 72, .10);
+      font-weight: 600;
+    }
+
+    .row { margin-bottom: 0; }
+    .card{
+      border-radius: 14px;
+      border: 1px solid var(--cat-border);
+      box-shadow: var(--cat-shadow);
+      background: var(--cat-card);
+      overflow: hidden;
+    }
+    .card .card-content{
+      padding: 14px 16px;
+    }
+    .card .card-title{
+      color: var(--cat-text);
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .card .card-content:first-child{
+      background: linear-gradient(180deg, rgba(242,224,212,.75), rgba(247,238,232,.15));
+      border-bottom: 1px solid rgba(121, 85, 72, .08);
+    }
+
+    .btn, .btn-large {
+      height: 44px;
+      line-height: 44px;
+      border-radius: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 700;
+      background: #7b4f43;
+      box-shadow: 0 6px 14px rgba(106, 68, 51, 0.15);
+    }
+    .btn:hover, .btn-large:hover{
+      background: #6f463b;
+    }
+    .btn.grey, .btn-large.grey{
+      background: #d9c3b7 !important;
+      color: #4e342e !important;
+      box-shadow: 0 4px 12px rgba(106,68,51,.09);
+    }
+    .btn.grey:hover, .btn-large.grey:hover{
+      background: #d2b8aa !important;
+    }
+    .btn-flat{
+      border-radius: 10px;
+      color: #5d4037;
+      text-transform: none;
+      font-weight: 600;
+    }
+    .btn-flat:hover{
+      background: rgba(121, 85, 72, .08);
+    }
+
+    .input-field input[type=text],
+    .input-field input[type=number],
+    .input-field input[type=search],
+    .input-field textarea.materialize-textarea{
+      border-bottom: 1px solid rgba(121, 85, 72, .22) !important;
+      box-shadow: none !important;
+    }
+    .input-field input:focus,
+    .input-field textarea.materialize-textarea:focus{
+      border-bottom: 1px solid #8d6e63 !important;
+      box-shadow: 0 1px 0 0 #8d6e63 !important;
+    }
+    .input-field .prefix.active,
+    .input-field input:focus + label,
+    .input-field textarea:focus + label{
+      color: #6d4c41 !important;
+    }
+    .dropdown-content{
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(121, 85, 72, .10);
+      box-shadow: var(--cat-shadow-soft);
+    }
+
+    .collection{
+      border: 1px solid rgba(121, 85, 72, .10);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 0;
+      background: #fff;
+    }
+    .collection .collection-item{
+      border-bottom: 1px solid rgba(121, 85, 72, .08);
+      background: rgba(255,255,255,.92);
+      padding: 12px 12px;
+      line-height: 1.35;
+    }
+    .collection .collection-item:last-child{
+      border-bottom: none;
+    }
+    .collection .collection-item .secondary-content{
+      color: #6d4c41;
+    }
+    .collection .collection-item .secondary-content:hover{
+      color: #4e342e;
+    }
+    .badge.new{
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    table.striped, table.highlight{
+      border: 1px solid rgba(121, 85, 72, .10);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+    table.striped thead, table.highlight thead{
+      background: rgba(121, 85, 72, .08);
+    }
+    table.striped th, table.highlight th{
+      color: #5d4037;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(121, 85, 72, .10);
+    }
+    table.striped td, table.highlight td{
+      vertical-align: top;
+    }
+    table.striped > tbody > tr:nth-child(odd){
+      background-color: rgba(121, 85, 72, .025);
+    }
+    table.highlight > tbody > tr:hover{
+      background-color: rgba(121, 85, 72, .05);
+    }
+
+    #variantes_panel{
+      min-height: 340px;
+    }
+    #variantes_panel h5{
+      color: var(--cat-text);
+      font-weight: 700;
+      font-size: 20px;
+    }
+    #variantes_panel p.grey-text{
+      color: var(--cat-muted) !important;
+    }
+    #variantes_panel .btn{
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    #variantes_panel .material-icons{
+      vertical-align: middle;
+    }
+
+    .modal{
+      max-height: 94%;
+      width: min(1080px, 94vw);
+      border-radius: 16px;
+      overflow: visible;
+      background: var(--cat-card);
+      border: 1px solid rgba(121, 85, 72, .14);
+      box-shadow: 0 16px 40px rgba(80, 52, 40, 0.18);
+      left: 50% !important;
+      right: auto !important;
+      margin: 0 !important;
+      transform: translateX(-50%) !important;
+    }
+    .modal .modal-content{
+      background: radial-gradient(circle at top right, rgba(255,255,255,.55), transparent 40%), var(--cat-card);
+      padding: 18px 22px 12px;
+      overflow: visible !important;
+    }
+    #modal_main .modal-content{
+      max-height: calc(94vh - 26px);
+      overflow-y: auto !important;
+      overflow-x: visible !important;
+      padding-bottom: 18px;
+    }
+    .modal .modal-footer{
+      background: linear-gradient(180deg, rgba(242,224,212,.9), rgba(247,238,232,.95));
+      border-top: 1px solid rgba(121, 85, 72, .12);
+      padding: 10px 16px;
+    }
+    .modal .modal-footer .btn,
+    .modal .modal-footer .btn-flat{
+      border-radius: 10px;
+    }
+    #modal_main .dropdown-content{
+      z-index: 2005 !important;
+    }
+    #modal_main .input-field .select-wrapper input.select-dropdown{
+      height: 42px;
+      line-height: 42px;
+      margin-bottom: 0;
+      padding: 0 38px 0 12px;
+      border: 1px solid rgba(121, 85, 72, .18);
+      border-radius: 10px;
+      background: rgba(255,255,255,.65);
+      box-sizing: border-box;
+    }
+    #modal_main .input-field .select-wrapper .caret{
+      fill: #6d4c41;
+      right: 10px;
+    }
+    #modal_main .dropdown-content.select-dropdown{
+      border-radius: 12px;
+      border: 1px solid rgba(121, 85, 72, .14);
+      box-shadow: 0 12px 26px rgba(80, 52, 40, 0.14);
+      overflow: hidden;
+      margin-top: 6px;
+    }
+    #modal_main .dropdown-content.select-dropdown li > span{
+      color: var(--cat-text);
+      font-size: 14px;
+      line-height: 1.25;
+      padding: 12px 14px;
+    }
+    #modal_main .dropdown-content.select-dropdown li:hover,
+    #modal_main .dropdown-content.select-dropdown li.selected{
+      background: rgba(121, 85, 72, .08);
+    }
+
+    @media (max-width: 992px){
+      .page-wrap{ padding: 10px; }
+      .catalogo-shell{ padding: 10px 10px 8px; }
+      .card .card-content{ padding: 12px; }
+    }
   </style>
 
   <script defer>
+    function initCatalogoSelects(root) {
+      if (typeof M === "undefined") return;
+      const scope = root && root.querySelectorAll ? root : document;
+      scope.querySelectorAll('select').forEach(function(selectEl) {
+        const modalRoot = selectEl.closest('#modal_main');
+        const options = modalRoot ? { dropdownOptions: { container: modalRoot } } : {};
+        M.FormSelect.init(selectEl, options);
+      });
+    }
+
     // Abre el modal principal y re-inicializa componentes Materialize dentro del modal
     function openMainModal() {
       const el = document.getElementById('modal_main');
@@ -29,7 +314,7 @@
       const inst = M.Modal.getInstance(el) || M.Modal.init(el);
       inst.open();
       if (M.updateTextFields) M.updateTextFields();
-      M.FormSelect.init(document.querySelectorAll('select'));
+      initCatalogoSelects(document);
       
     }
 
@@ -54,7 +339,7 @@
         }
         // Re-init selects por si se actualizaron parciales
         if (typeof M !== "undefined") {
-          M.FormSelect.init(document.querySelectorAll('select'));
+          initCatalogoSelects(document);
         }
       });
 
@@ -98,58 +383,61 @@
   <!-- ✅ CSRF global disponible para HTMX -->
   <form id="csrf-holder" style="display:none;">{% csrf_token %}</form>
 
-  <nav>
-    <div class="nav-wrapper">
-      <a href="#" class="brand-logo" style="padding-left:12px;">Catálogo</a>
-      <ul id="nav-mobile" class="right">
-        <li><a href="/caja/">Caja</a></li>
-        <li><a href="/admin/">Admin</a></li>
-      </ul>
-    </div>
-  </nav>
-
   <div class="page-wrap">
-    <div class="row">
-      <div class="col s12 m6">
-        <div class="card">
-          <div class="card-content">
-            <span class="card-title">Productos</span>
-
-            <div class="row" style="margin-bottom:0;">
-              <div class="input-field col s12">
-                <input id="q" name="q" type="text" placeholder="Nombre / Categoría..."
-                       hx-get="{% url 'catalogo:productos_buscar' %}"
-                       hx-trigger="keyup changed delay:300ms"
-                       hx-target="#productos_lista"
-                       hx-include="#q">
-                <label for="q">Buscar</label>
-              </div>
-            </div>
-
-            <div class="right-align">
-              <a class="btn-large"
-                 href="javascript:void(0)"
-                 hx-get="{% url 'catalogo:producto_nuevo' %}"
-                 hx-target="#modal_body"
-                 hx-swap="innerHTML">
-                <i class="material-icons left">add</i>Nuevo
-              </a>
-            </div>
-          </div>
-
-          <div class="card-content" id="productos_lista">
-            {% include "catalogo/_productos_lista.html" %}
-          </div>
+    <div class="catalogo-shell">
+      <div class="catalogo-head">
+        <div>
+          <h4>Catálogo</h4>
+          <p>Productos y variantes con edición rápida y stock por sucursal</p>
+        </div>
+        <div class="chip">
+          <i class="material-icons tiny" style="vertical-align:middle; margin-right:4px;">inventory_2</i>
+          Gestión de catálogo
         </div>
       </div>
 
-      <div class="col s12 m6">
-        <div class="card">
-          <div class="card-content">
-            <span class="card-title">Variantes</span>
-            <p class="grey-text">Seleccioná un producto para ver/editar variantes.</p>
+      <div class="row">
+        <div class="col s12 m6">
+          <div class="card">
+            <div class="card-content">
+              <span class="card-title">Productos</span>
+
+              <div class="row" style="margin-bottom:0;">
+                <div class="input-field col s12">
+                  <input id="q" name="q" type="text" placeholder="Nombre / Categoría..."
+                         hx-get="{% url 'catalogo:productos_buscar' %}"
+                         hx-trigger="keyup changed delay:300ms"
+                         hx-target="#productos_lista"
+                         hx-include="#q">
+                  <label for="q">Buscar</label>
+                </div>
+              </div>
+
+              <div class="right-align">
+                <a class="btn-large"
+                   href="javascript:void(0)"
+                   hx-get="{% url 'catalogo:producto_nuevo' %}"
+                   hx-target="#modal_body"
+                   hx-swap="innerHTML">
+                  <i class="material-icons left">add</i>Nuevo
+                </a>
+              </div>
+            </div>
+
+            <div class="card-content" id="productos_lista">
+              {% include "catalogo/_productos_lista.html" %}
+            </div>
           </div>
-          <div class="card-content" id="variantes_panel"></div>
+        </div>
+
+        <div class="col s12 m6">
+          <div class="card">
+            <div class="card-content">
+              <span class="card-title">Variantes</span>
+              <p class="grey-text">Seleccioná un producto para ver/editar variantes.</p>
+            </div>
+            <div class="card-content" id="variantes_panel"></div>
+          </div>
         </div>
       </div>
     </div>

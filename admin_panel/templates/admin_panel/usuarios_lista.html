@@ -1,9 +1,574 @@
 {% extends "admin_panel/base.html" %}
-{% block title %}Gestion de Usuarios{% endblock %}
+{% block title %}Gestión de Usuarios{% endblock %}
 {% block header_title %}Usuarios{% endblock %}
 {% block content %}
-  <div class="card"><div class="card-content">
-    <span class="card-title">Usuarios</span>
-    <p>Sección lista para integrar el CRUD existente.</p>
-  </div></div>
+<style>
+  .users-admin-card { border-radius: 14px; }
+  .users-admin-card .card-content { padding-top: 10px; }
+  .soft-panel {
+    border: 1px solid rgba(121, 85, 72, .12);
+    border-radius: 12px;
+    padding: 14px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(60, 35, 20, .04);
+  }
+  .soft-panel h6 { margin: 0 0 14px; font-weight: 700; }
+  .table-wrap { overflow: auto; }
+  .compact-table td, .compact-table th {
+    padding: 10px 8px;
+    line-height: 1.35;
+    vertical-align: top;
+  }
+  .compact-table td {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .role-chip {
+    display: inline-block;
+    margin: 2px 6px 2px 0;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: #efebe9;
+    color: #4e342e;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .perm-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #5f6368;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .perm-list li { margin-bottom: 2px; }
+  .inline-form { display: inline; }
+  .field-errors { color: #c62828; font-size: 12px; margin-top: 4px; }
+  .form-help { color: #6b7280; font-size: 12px; margin-top: 4px; }
+  .subtle { color: #6b7280; font-size: 13px; }
+  .multi-tools {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 6px 0 8px;
+  }
+  .multi-tools .btn-flat {
+    height: 32px;
+    line-height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    background: #efebe9;
+    color: #4e342e;
+    text-transform: none;
+    letter-spacing: 0;
+    font-weight: 600;
+  }
+  .multi-tools .btn-flat:hover {
+    background: #e6ddd9;
+  }
+  .multi-select-shell {
+    border: 1px solid rgba(121, 85, 72, .10);
+    border-radius: 10px;
+    background: #faf8f7;
+    padding: 10px;
+    margin-top: 4px;
+  }
+  .multi-select-shell .multi-tools {
+    margin-top: 0;
+  }
+  .checklist-box {
+    border: 1px solid rgba(121, 85, 72, .14);
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px;
+    overflow: auto;
+    min-height: 180px;
+    max-height: 240px;
+  }
+  .checklist-box.permissions-box {
+    min-height: 320px;
+    height: calc(100vh - 360px);
+    max-height: 500px;
+  }
+  .checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    color: #3e2723;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+  .checklist-item:hover {
+    background: #f5efeb;
+  }
+  .checklist-item input[type="checkbox"] {
+    margin: 2px 0 0;
+    position: static;
+    opacity: 1;
+    pointer-events: auto;
+    width: 16px;
+    height: 16px;
+  }
+  .checklist-item input[type="checkbox"] + span {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow: visible !important;
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 0 !important;
+    color: #3e2723 !important;
+  }
+  .checklist-item input[type="checkbox"] + span::before,
+  .checklist-item input[type="checkbox"] + span::after {
+    display: none !important;
+  }
+  .checklist-empty {
+    padding: 8px;
+    color: #6b7280;
+    font-size: 13px;
+  }
+  .modal .modal-content .input-field {
+    margin-bottom: 14px;
+  }
+  .toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .modal.modal-fixed-footer {
+    width: min(820px, 94vw) !important;
+    left: 50% !important;
+    right: auto !important;
+    margin: 0 !important;
+    transform: translateX(-50%) !important;
+    max-height: 90vh;
+    border-radius: 14px;
+  }
+  .modal.modal-fixed-footer .modal-content {
+    width: 100%;
+  }
+  @media (max-width: 992px) {
+    .soft-panel { margin-bottom: 14px; }
+  }
+</style>
+
+<div class="card users-admin-card">
+  <div class="card-content">
+    <div class="toolbar-row">
+      <div>
+        <span class="card-title" style="margin-bottom:4px;">Gestión de Usuarios y Roles</span>
+        <div class="subtle">
+          Asigná sucursal y roles al usuario desde la misma pestaña. Los roles se definen en la pestaña “Roles”.
+        </div>
+      </div>
+      {% if active_tab == 'roles' %}
+        <a href="{% url 'admin_panel:usuarios_lista' %}?tab=roles&new_role=1" class="btn brown darken-1 waves-effect waves-light">
+          <i class="material-icons left">security</i>Crear rol
+        </a>
+      {% else %}
+        <a href="{% url 'admin_panel:usuarios_lista' %}?tab=usuarios&new_user=1" class="btn brown darken-1 waves-effect waves-light">
+          <i class="material-icons left">person_add</i>Crear usuario
+        </a>
+      {% endif %}
+    </div>
+
+    <div class="card" style="margin:0 0 14px 0;">
+      <div class="card-content" style="padding:10px 16px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a class="btn {% if active_tab == 'usuarios' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+             href="{% url 'admin_panel:usuarios_lista' %}?tab=usuarios">
+            <i class="material-icons left">people</i>Usuarios
+          </a>
+          <a class="btn {% if active_tab == 'roles' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+             href="{% url 'admin_panel:usuarios_lista' %}?tab=roles">
+            <i class="material-icons left">security</i>Roles
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-usuarios" {% if active_tab != 'usuarios' %}style="display:none;"{% endif %}>
+      <div class="row">
+        <div class="col s12 l10 offset-l1">
+          <div class="soft-panel">
+            <h6>Usuarios cargados</h6>
+            <div class="table-wrap">
+              <table class="striped compact-table">
+                <thead>
+                  <tr>
+                    <th>Usuario</th>
+                    <th>Sucursal</th>
+                    <th>Roles</th>
+                    <th>Estado</th>
+                    <th style="width:160px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for u in usuarios %}
+                    <tr>
+                      <td>
+                        <div style="font-weight:600;">{{ u.username }}</div>
+                        <div class="subtle">
+                          {% if u.first_name or u.last_name %}{{ u.first_name }} {{ u.last_name }}{% else %}Sin nombre cargado{% endif %}
+                          {% if u.email %}<br>{{ u.email }}{% endif %}
+                        </div>
+                      </td>
+                      <td>
+                        {% if u.panel_profile and u.panel_profile.sucursal %}
+                          {{ u.panel_profile.sucursal.nombre }}
+                        {% else %}
+                          <span class="subtle">Sin asignar</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% for g in u.groups.all %}
+                          <span class="role-chip">{{ g.name }}</span>
+                        {% empty %}
+                          <span class="subtle">Sin roles</span>
+                        {% endfor %}
+                      </td>
+                      <td>
+                        {% if u.is_active %}
+                          <span class="new badge green" data-badge-caption="Activo"></span>
+                        {% else %}
+                          <span class="new badge red" data-badge-caption="Inactivo"></span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <a href="{% url 'admin_panel:usuarios_lista' %}?tab=usuarios&edit_user={{ u.id }}"
+                           class="btn-flat waves-effect"
+                           title="Editar usuario">
+                          <i class="material-icons">edit</i>
+                        </a>
+                        <form method="post" class="inline-form">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="user_toggle_active">
+                          <input type="hidden" name="tab" value="usuarios">
+                          <input type="hidden" name="user_id" value="{{ u.id }}">
+                          <button type="submit" class="btn-flat waves-effect" title="{% if u.is_active %}Desactivar{% else %}Activar{% endif %}">
+                            <i class="material-icons">{% if u.is_active %}person_off{% else %}check_circle{% endif %}</i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="5" class="subtle">No hay usuarios cargados.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-roles" {% if active_tab != 'roles' %}style="display:none;"{% endif %}>
+      <div class="row">
+        <div class="col s12 l10 offset-l1">
+          <div class="soft-panel">
+            <h6>Roles existentes</h6>
+            <div class="table-wrap">
+              <table class="striped compact-table">
+                <thead>
+                  <tr>
+                    <th>Rol</th>
+                    <th>Usuarios</th>
+                    <th>Permisos</th>
+                    <th style="width:180px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for role in roles %}
+                    <tr>
+                      <td style="font-weight:600;">{{ role.name }}</td>
+                      <td>{{ role.user_set.count }}</td>
+                      <td>
+                        <div style="font-weight:600; margin-bottom:4px;">{{ role.permissions.count }} permisos</div>
+                        <ul class="perm-list">
+                          {% for perm in role.permissions.all|slice:":4" %}
+                            <li>{{ perm.content_type.app_label }}.{{ perm.codename }}</li>
+                          {% empty %}
+                            <li>Sin permisos asignados</li>
+                          {% endfor %}
+                          {% if role.permissions.count > 4 %}
+                            <li>+{{ role.permissions.count|add:"-4" }} más</li>
+                          {% endif %}
+                        </ul>
+                      </td>
+                      <td>
+                        <a href="{% url 'admin_panel:usuarios_lista' %}?tab=roles&edit_role={{ role.id }}"
+                           class="btn-flat waves-effect" title="Editar rol">
+                          <i class="material-icons">edit</i>
+                        </a>
+                        <form method="post" class="inline-form" onsubmit="return confirm('¿Eliminar el rol {{ role.name|escapejs }}?');">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="role_delete">
+                          <input type="hidden" name="tab" value="roles">
+                          <input type="hidden" name="role_id" value="{{ role.id }}">
+                          <button type="submit" class="btn-flat red-text waves-effect" title="Eliminar rol">
+                            <i class="material-icons">delete</i>
+                          </button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="4" class="subtle">No hay roles creados.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-crear-usuario" class="modal modal-fixed-footer">
+  <div class="modal-content">
+    <h5 style="margin-top:0;">{% if edit_user %}Editar usuario{% else %}Crear usuario{% endif %}</h5>
+    <p class="subtle" style="margin-top:-4px; margin-bottom:14px;">
+      {% if edit_user %}
+        Actualizá datos, sucursal y roles de <strong>{{ edit_user.username }}</strong>.
+      {% else %}
+        Asigná sucursal y roles desde el alta.
+      {% endif %}
+    </p>
+    <form id="form-crear-usuario" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="user_modal_save">
+      <input type="hidden" name="tab" value="usuarios">
+      {% if edit_user %}
+        <input type="hidden" name="user_id" value="{{ edit_user.id }}">
+      {% endif %}
+
+      <div class="input-field">
+        {{ user_modal_form.username }}
+        <label for="{{ user_modal_form.username.id_for_label }}" class="active">Usuario</label>
+        {% for err in user_modal_form.username.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div class="row" style="margin-bottom:0;">
+        <div class="col s12 m6">
+          <div class="input-field">
+            {{ user_modal_form.first_name }}
+            <label for="{{ user_modal_form.first_name.id_for_label }}" class="active">Nombre</label>
+            {% for err in user_modal_form.first_name.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="input-field">
+            {{ user_modal_form.last_name }}
+            <label for="{{ user_modal_form.last_name.id_for_label }}" class="active">Apellido</label>
+            {% for err in user_modal_form.last_name.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="input-field">
+        {{ user_modal_form.email }}
+        <label for="{{ user_modal_form.email.id_for_label }}" class="active">Email</label>
+        {% for err in user_modal_form.email.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div class="row" style="margin-bottom:0;">
+        <div class="col s12 m6">
+          <div class="input-field">
+            {{ user_modal_form.password1 }}
+            <label for="{{ user_modal_form.password1.id_for_label }}" class="active">
+              {% if edit_user %}Nueva contraseña (opcional){% else %}Contraseña{% endif %}
+            </label>
+            {% for err in user_modal_form.password1.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="col s12 m6">
+          <div class="input-field">
+            {{ user_modal_form.password2 }}
+            <label for="{{ user_modal_form.password2.id_for_label }}" class="active">
+              {% if edit_user %}Repetir nueva contraseña{% else %}Repetir contraseña{% endif %}
+            </label>
+            {% for err in user_modal_form.password2.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div style="margin: 6px 0 12px;">
+        <label style="font-weight:600; color:#5d4037;">Sucursal</label>
+        {{ user_modal_form.sucursal }}
+        {% for err in user_modal_form.sucursal.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div style="margin: 8px 0 12px;">
+        <label style="font-weight:600; color:#5d4037;">Roles</label>
+        <div class="multi-select-shell">
+          <div class="multi-tools">
+            <button type="button" class="btn-flat waves-effect js-multi-toggle" data-target="user-roles-checklist" data-mode="all">
+              Seleccionar todos
+            </button>
+            <button type="button" class="btn-flat waves-effect js-multi-toggle" data-target="user-roles-checklist" data-mode="none">
+              Quitar todos
+            </button>
+          </div>
+          <div id="user-roles-checklist" class="checklist-box">
+            {% for option in user_modal_form.groups %}
+              <label class="checklist-item">
+                {{ option.tag }}
+                <span>{{ option.choice_label }}</span>
+              </label>
+            {% empty %}
+              <div class="checklist-empty">No hay roles creados.</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% for err in user_modal_form.groups.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+        <div class="form-help">Marcá roles con checkboxes. Podés seleccionar o quitar todos con un clic.</div>
+      </div>
+
+      <p style="margin: 10px 0 0;">
+        <label>
+          {{ user_modal_form.is_active }}
+          <span>Usuario activo</span>
+        </label>
+      </p>
+      {% for err in user_modal_form.is_active.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+
+      {% if user_modal_form.non_field_errors %}
+        {% for err in user_modal_form.non_field_errors %}
+          <div class="card-panel red lighten-4 red-text text-darken-4" style="padding:10px 12px;">{{ err }}</div>
+        {% endfor %}
+      {% endif %}
+    </form>
+  </div>
+  <div class="modal-footer">
+    <a href="{% url 'admin_panel:usuarios_lista' %}?tab=usuarios" class="btn-flat waves-effect">
+      {% if edit_user %}Cancelar edición{% else %}Cancelar{% endif %}
+    </a>
+    <button type="submit" form="form-crear-usuario" class="btn brown darken-1 waves-effect waves-light">
+      <i class="material-icons left">{% if edit_user %}save{% else %}person_add{% endif %}</i>
+      {% if edit_user %}Guardar cambios{% else %}Crear usuario{% endif %}
+    </button>
+  </div>
+</div>
+
+<div id="modal-crear-rol" class="modal modal-fixed-footer">
+  <div class="modal-content">
+    <h5 style="margin-top:0;">{% if edit_role %}Editar rol{% else %}Crear rol{% endif %}</h5>
+    <p class="subtle" style="margin-top:-4px; margin-bottom:14px;">
+      {% if edit_role %}
+        Actualizá permisos del rol <strong>{{ edit_role.name }}</strong>.
+      {% else %}
+        Definí un rol y los permisos que va a otorgar.
+      {% endif %}
+    </p>
+    <form id="form-crear-rol" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="role_save">
+      <input type="hidden" name="tab" value="roles">
+      {% if edit_role %}
+        <input type="hidden" name="role_id" value="{{ edit_role.id }}">
+      {% endif %}
+
+      <div class="input-field">
+        {{ role_form.name }}
+        <label for="{{ role_form.name.id_for_label }}" class="active">Nombre del rol</label>
+        {% for err in role_form.name.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div style="margin: 8px 0 12px;">
+        <label style="font-weight:600; color:#5d4037;">Permisos del rol</label>
+        <div class="multi-select-shell">
+          <div class="multi-tools">
+            <button type="button" class="btn-flat waves-effect js-multi-toggle" data-target="role-permissions-checklist" data-mode="all">
+              Seleccionar todos
+            </button>
+            <button type="button" class="btn-flat waves-effect js-multi-toggle" data-target="role-permissions-checklist" data-mode="none">
+              Quitar todos
+            </button>
+          </div>
+          <div id="role-permissions-checklist" class="checklist-box permissions-box">
+            {% for option in role_form.permissions %}
+              <label class="checklist-item">
+                {{ option.tag }}
+                <span>{{ option.choice_label }}</span>
+              </label>
+            {% empty %}
+              <div class="checklist-empty">No hay permisos disponibles.</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% for err in role_form.permissions.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+        <div class="form-help">La lista ocupa más alto del modal para facilitar selección masiva y revisión.</div>
+      </div>
+
+      {% if role_form.non_field_errors %}
+        {% for err in role_form.non_field_errors %}
+          <div class="card-panel red lighten-4 red-text text-darken-4" style="padding:10px 12px;">{{ err }}</div>
+        {% endfor %}
+      {% endif %}
+    </form>
+  </div>
+  <div class="modal-footer">
+    <a href="{% url 'admin_panel:usuarios_lista' %}?tab=roles" class="btn-flat waves-effect">
+      {% if edit_role %}Cancelar edición{% else %}Cancelar{% endif %}
+    </a>
+    <button type="submit" form="form-crear-rol" class="btn brown darken-1 waves-effect waves-light">
+      <i class="material-icons left">{% if edit_role %}save{% else %}security{% endif %}</i>
+      {% if edit_role %}Guardar rol{% else %}Crear rol{% endif %}
+    </button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () {
+      document.querySelectorAll(".js-multi-toggle").forEach(function (btn) {
+        if (btn.dataset.bound === "1") return;
+        btn.dataset.bound = "1";
+        btn.addEventListener("click", function () {
+          const targetId = btn.getAttribute("data-target");
+          const mode = btn.getAttribute("data-mode");
+          const scope = targetId ? document.getElementById(targetId) : null;
+          if (!scope) return;
+          const checks = scope.querySelectorAll('input[type="checkbox"]');
+          checks.forEach(function (cb) {
+            cb.checked = (mode === "all");
+          });
+          if (checks.length) {
+            checks[0].dispatchEvent(new Event("change", { bubbles: true }));
+            checks[0].focus();
+          }
+        });
+      });
+
+      {% if open_user_modal and active_tab == 'usuarios' %}
+      const createModalEl = document.getElementById("modal-crear-usuario");
+      if (createModalEl && window.M && M.Modal) {
+        const instance = M.Modal.getInstance(createModalEl) || M.Modal.init(createModalEl, {});
+        instance.open();
+      }
+      {% endif %}
+
+      {% if open_role_modal and active_tab == 'roles' %}
+      const roleModalEl = document.getElementById("modal-crear-rol");
+      if (roleModalEl && window.M && M.Modal) {
+        const instance = M.Modal.getInstance(roleModalEl) || M.Modal.init(roleModalEl, {});
+        instance.open();
+      }
+      {% endif %}
+    }, 0);
+  });
+</script>
 {% endblock %}

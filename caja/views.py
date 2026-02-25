@@ -7,7 +7,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Q
 from django.http import HttpResponse
@@ -19,7 +19,6 @@ from core.models import Sucursal
 from catalogo.models import Variante, StockSucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from ventas.services import confirmar_venta
-from django.core.exceptions import ValidationError
 from cuentas_corrientes.models import Cliente, CuentaCorriente, MovimientoCuentaCorriente
 
 from admin_panel.services import permitir_vender_sin_stock, permitir_cambiar_precio_venta, get_ventas_flags
@@ -592,12 +591,41 @@ def pagos_cuotas(request, idx: int):
 
 
 # ======================================================================
-# Helpers: Sucursal fija
+# Helpers: Sucursal (usuario -> perfil; fallback opcional por settings)
 # ======================================================================
 
-def _get_pos_sucursal():
-    sid = getattr(settings, "POS_SUCURSAL_ID", 1)
-    return Sucursal.objects.get(id=sid, activa=True)
+def _get_pos_sucursal(request):
+    user = getattr(request, "user", None)
+
+    if user is not None and getattr(user, "is_authenticated", False):
+        try:
+            profile = user.panel_profile
+        except ObjectDoesNotExist:
+            profile = None
+
+        if profile and profile.sucursal_id:
+            sucursal = profile.sucursal
+            if not sucursal.activa:
+                raise ValidationError(
+                    "Tu usuario tiene una sucursal asignada pero está inactiva. "
+                    "Contactá a un administrador."
+                )
+            return sucursal
+
+    # Compatibilidad temporal: permite seguir operando con la sucursal fija
+    # mientras se termina de asignar sucursal a todos los usuarios.
+    if getattr(settings, "POS_SUCURSAL_FALLBACK_TO_SETTINGS", True):
+        sid = getattr(settings, "POS_SUCURSAL_ID", None)
+        if sid is not None:
+            try:
+                return Sucursal.objects.get(id=sid, activa=True)
+            except Sucursal.DoesNotExist:
+                pass
+
+    raise ValidationError(
+        "No tenés una sucursal asignada para operar en Caja. "
+        "Asignala desde Admin Panel > Usuarios."
+    )
 
 
 # ======================================================================
@@ -702,7 +730,7 @@ def _get_stock_disponible(sucursal, variante_id: int) -> int:
 # ======================================================================
 
 def _render_cart(request):
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
 
     cart_ctx = _build_cart_context(request)
     variante_ids = [row["variante"].id for row in cart_ctx["items"]]
@@ -749,12 +777,13 @@ def _render_cart_with_toast(request, message: str):
 # Pantalla POS
 # ======================================================================
 
+@handle_pos_errors
 @login_required
 def pos(request):
     token = str(uuid.uuid4())
     request.session["pos_confirm_token"] = token
 
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
     cart_ctx = _build_cart_context(request)
     cart_variante_ids = [row["variante"].id for row in cart_ctx["items"]]
     stock_map = _build_stock_map(sucursal, cart_variante_ids)
@@ -840,6 +869,7 @@ def pos(request):
 # Búsqueda / Scanner
 # ======================================================================
 
+@handle_pos_errors
 @login_required
 def buscar_variantes(request):
     q = (request.GET.get("q") or "").strip()
@@ -859,7 +889,7 @@ def buscar_variantes(request):
         )
         results = list(qs)
 
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
 
     stock_map = {}
     if results:
@@ -921,7 +951,7 @@ def scan_add(request):
         .order_by("producto__nombre", "sku")[:50]
     )
 
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
     stock_map = {}
     if results:
         ids = [v.id for v in results]
@@ -951,7 +981,7 @@ def scan_add(request):
 @require_POST
 def carrito_agregar(request, variante_id: int):
     v = get_object_or_404(Variante, id=variante_id, activo=True)
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
 
     stock = _get_stock_disponible(sucursal, v.id)
     cart = _cart_get(request)
@@ -995,7 +1025,7 @@ def carrito_set_qty(request, variante_id: int):
     if qty < 1:
         qty = 1
 
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
     stock = _get_stock_disponible(sucursal, variante_id)
 
     if stock <= 0 and not perm_sin_stock:
@@ -1078,7 +1108,7 @@ def confirmar(request):
     if not session_token or sent_token != session_token:
         return HttpResponse("Operación ya procesada o token inválido.", status=409)
 
-    sucursal = _get_pos_sucursal()
+    sucursal = _get_pos_sucursal(request)
 
     cart = _cart_get(request)
     if not cart:

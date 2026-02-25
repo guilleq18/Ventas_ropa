@@ -29,6 +29,10 @@
       --pos-nav-bg-2: #6f463b;
       --pos-nav-border: rgba(255,255,255,.14);
       --pos-nav-hover: rgba(255,255,255,.10);
+      --pos-radius-md: 12px;
+      --pos-radius-lg: 14px;
+      --pos-shadow-soft: 0 8px 22px rgba(106, 68, 51, 0.08);
+      --pos-shadow-card: 0 10px 24px rgba(106, 68, 51, 0.10);
     }
     /* =======================
        Modal Venta
@@ -36,9 +40,140 @@
     #venta_modal.modal{
       width: 85% !important;
       max-width: 1100px !important;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--pos-card-bg);
+      border: 1px solid rgba(121, 85, 72, 0.14);
+      box-shadow: 0 16px 40px rgba(80, 52, 40, 0.18);
+    }
+    #venta_modal .modal-content{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.65), rgba(255,255,255,0) 48%),
+        var(--pos-card-bg);
+      padding: 18px 20px 14px;
+    }
+    #venta_modal .venta-modal-title{
+      margin: 0;
+      font-weight: 700;
+      color: #4e342e;
+      letter-spacing: .2px;
+    }
+    #venta_modal .venta-modal-meta{
+      margin-top: 6px;
+      margin-bottom: 14px;
+      color: #6d4c41 !important;
+      font-size: 13px;
+    }
+    #venta_modal .venta-section-title{
+      margin: 14px 0 8px;
+      font-weight: 700;
+      color: #4e342e;
+      font-size: 15px;
+    }
+    #venta_modal .venta-soft-panel{
+      background: rgba(255,255,255,.52);
+      border: 1px solid rgba(121, 85, 72, 0.12);
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+    }
+    #venta_modal .venta-items-table{
+      margin: 0;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+    }
+    #venta_modal .venta-items-table thead{
+      background: rgba(121, 85, 72, 0.08);
+    }
+    #venta_modal .venta-items-table th{
+      color: #5d4037;
+      font-weight: 700;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(121, 85, 72, 0.10);
+    }
+    #venta_modal .venta-items-table td{
+      font-size: 13px;
+      vertical-align: top;
+    }
+    #venta_modal .venta-subtotal-line,
+    #venta_modal .venta-total-line{
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      background: rgba(255,255,255,.72);
+    }
+    #venta_modal .venta-total-line{
+      background: rgba(255,255,255,.88);
+    }
+    #venta_modal .venta-payments-list{
+      margin: 0;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      background: #fff;
+    }
+    #venta_modal .venta-payments-list .collection-item{
+      border-bottom: 1px solid rgba(121, 85, 72, 0.08);
+      padding: 10px 12px;
+      background: rgba(255,255,255,.9);
+    }
+    #venta_modal .venta-payments-list .collection-item:last-child{
+      border-bottom: none;
+    }
+    #venta_modal .venta-payment-meta{
+      font-size: 12px;
+      color: #6d4c41 !important;
+      line-height: 1.3;
+    }
+    #venta_modal .venta-payment-ref{
+      font-size: 11px;
+      color: #8d6e63 !important;
+      line-height: 1.25;
+    }
+    #venta_modal .venta-payment-amount{
+      text-align: right;
+      white-space: nowrap;
+      min-width: 132px;
+      padding-left: 8px;
+    }
+    #venta_modal .venta-payment-amount strong{
+      color: #4e342e;
+      font-size: 16px;
+    }
+    #venta_modal .venta-payment-extra{
+      font-size: 12px;
+      color: #6d4c41 !important;
+      margin-top: 2px;
+    }
+    #venta_modal .venta-modal-footer{
+      background: linear-gradient(180deg, rgba(242,224,212,.9), rgba(247,238,232,.95));
+      border-top: 1px solid rgba(121, 85, 72, 0.12);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    #venta_modal .venta-modal-footer .btn,
+    #venta_modal .venta-modal-footer .btn-flat{
+      border-radius: 10px;
     }
     @media (max-width: 600px){
       #venta_modal.modal{ width: 95% !important; }
+      #venta_modal .modal-content{ padding: 14px 12px 10px; }
+      #venta_modal .venta-payment-amount{ min-width: 0; }
+      #venta_modal .venta-payments-list .collection-item{
+        flex-direction: column;
+        align-items: flex-start !important;
+      }
+      #venta_modal .venta-payment-amount{
+        width: 100%;
+        text-align: left;
+        padding-left: 0;
+      }
     }
 
     /* =======================
@@ -50,7 +185,9 @@
       min-height:0;
       background: var(--pos-card-bg);
       border: 1px solid var(--pos-card-border);
-      box-shadow: 0 6px 14px rgba(176, 120, 90, 0.06);
+      border-radius: var(--pos-radius-lg);
+      overflow: hidden;
+      box-shadow: var(--pos-shadow-card);
     }
     .pos-card .card-content{ display:flex; flex-direction:column; height:100%; min-height:0; }
     .pos-card .card-head{ flex:0 0 auto; }
@@ -70,7 +207,11 @@
       top: 0;
       z-index: 5;
       background: var(--pos-card-head);
-      padding-bottom: 8px;
+      padding: 12px;
+      padding-bottom: 10px;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      border-radius: var(--pos-radius-md);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
     }
 
     .card-head-row{
@@ -86,6 +227,10 @@
       gap:10px;
       flex-wrap:wrap;
       justify-content:flex-end;
+      padding: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      background: rgba(255,255,255,.38);
     }
     .pos-scan-input{
       width: 240px;
@@ -93,9 +238,16 @@
       height: 36px;
       padding: 0 10px;
       border: 1px solid #cfd8dc;
-      border-radius: 6px;
+      border-radius: 10px;
       box-sizing: border-box;
       background: #fff;
+    }
+    .card-head-actions .btn,
+    .card-head-actions .btn-flat{
+      border-radius: 10px;
+    }
+    .card-head-actions form{
+      margin: 0;
     }
 
     /* Header de carrito: mejor adaptación en anchos intermedios */
@@ -119,6 +271,14 @@
       width: 100%;
       justify-content: flex-start;
       gap: 8px;
+    }
+    .card-pagos .sticky-head > div:last-child{
+      margin-top: 12px !important;
+      padding: 10px 12px !important;
+      border-top: none !important;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      border-radius: 10px;
+      background: rgba(255,255,255,.32);
     }
     .card-pagos .card-head-actions form{
       margin: 0;
@@ -235,7 +395,8 @@
       border-top: 1px solid var(--pos-divider);
       background: var(--pos-card-bg);
       border: 1px solid var(--pos-card-border);
-      box-shadow: 0 6px 14px rgba(176, 120, 90, 0.06);
+      border-radius: var(--pos-radius-lg);
+      box-shadow: var(--pos-shadow-card);
     }
     .pos-sticky .card-content{ padding: 12px 16px; }
     .pos-sticky .controls{
@@ -424,9 +585,9 @@
     .pos-shell-card{
       margin: 0;
       padding: 14px 14px 10px;
-      border-radius: 12px;
+      border-radius: 16px;
       border: 1px solid rgba(0,0,0,.06);
-      box-shadow: 0 4px 16px rgba(15,23,42,0.06);
+      box-shadow: var(--pos-shadow-soft);
       background: var(--pos-warm-shell);
     }
     .pos-shell-card > .row{ margin-bottom: 0; }
@@ -440,10 +601,15 @@
     }
     .last-sale-rail .card{
       margin: 0;
-      border-radius: 12px;
+      border-radius: var(--pos-radius-lg);
       overflow: hidden;
       border: 1px solid rgba(0,0,0,.06);
-      box-shadow: 0 8px 18px rgba(15,23,42,.08);
+      box-shadow: var(--pos-shadow-soft);
+    }
+    #buscar_modal .card-panel{
+      border-radius: var(--pos-radius-md);
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      box-shadow: 0 6px 18px rgba(106, 68, 51, 0.07);
     }
     .last-sale-rail .card-content{
       padding: 14px 14px 10px;
@@ -904,89 +1070,94 @@
   {% if last_sale %}
     <div id="venta_modal" class="modal modal-fixed-footer">
       <div class="modal-content">
-        <h5 style="margin-top:0;">Venta #{{ last_sale.id }}</h5>
+        <h5 class="venta-modal-title">Venta #{{ last_sale.id }}</h5>
 
-        <div class="grey-text" style="margin-bottom:12px;">
+        <div class="grey-text venta-modal-meta">
           {{ last_sale.fecha|date:"d/m/Y H:i" }} — {{ last_sale.sucursal.nombre }}
         </div>
 
-        <h6 style="margin:14px 0 8px;">Items</h6>
-        <table class="striped" style="font-size:13px;">
-          <thead>
-            <tr>
-              <th style="width:50%;">Producto</th>
-              <th style="width:12%;">Cant.</th>
-              <th class="right-align" style="width:19%;">Unit.</th>
-              <th class="right-align" style="width:19%;">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for it in last_sale.items.all %}
+        <h6 class="venta-section-title">Items</h6>
+        <div class="venta-soft-panel">
+          <table class="striped venta-items-table" style="font-size:13px;">
+            <thead>
               <tr>
-                <td>
-                  <div style="font-weight:600; line-height:1.2;">{{ it.variante.sku }}</div>
-                  <div class="grey-text" style="font-size:12px; line-height:1.2;">
-                    {{ it.variante.producto.nombre }}
-                  </div>
-                </td>
-                <td>{{ it.cantidad }}</td>
-                <td class="right-align">${{ it.precio_unitario|num_ar }}</td>
-                <td class="right-align"><strong>${{ it.subtotal|num_ar }}</strong></td>
+                <th style="width:50%;">Producto</th>
+                <th style="width:12%;">Cant.</th>
+                <th class="right-align" style="width:19%;">Unit.</th>
+                <th class="right-align" style="width:19%;">Subtotal</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {% for it in last_sale.items.all %}
+                <tr>
+                  <td>
+                    <div style="font-weight:600; line-height:1.2;">{{ it.variante.sku }}</div>
+                    <div class="grey-text" style="font-size:12px; line-height:1.2;">
+                      {{ it.variante.producto.nombre }}
+                    </div>
+                  </td>
+                  <td>{{ it.cantidad }}</td>
+                  <td class="right-align">${{ it.precio_unitario|num_ar }}</td>
+                  <td class="right-align"><strong>${{ it.subtotal|num_ar }}</strong></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
 
-        <div style="margin-top:8px; text-align:right;">
-          <span class="grey-text text-darken-2">Total por items:</span>
-          <strong>${{ last_sale_total_items|num_ar }}</strong>
+          <div class="venta-subtotal-line" style="text-align:right;">
+            <span class="grey-text text-darken-2">Total por items:</span>
+            <strong>${{ last_sale_total_items|num_ar }}</strong>
+          </div>
         </div>
 
-        <h6 style="margin:16px 0 8px;">Formas de pago</h6>
-        <ul class="collection" style="margin:0;">
-          {% for p in last_sale_pagos %}
-            <li class="collection-item" style="display:flex; justify-content:space-between; gap:12px;">
-              <div>
-                <div style="font-weight:600;">{{ p.get_tipo_display }}</div>
+        <h6 class="venta-section-title">Formas de pago</h6>
+        <div class="venta-soft-panel">
+          <ul class="collection venta-payments-list">
+            {% for p in last_sale_pagos %}
+              <li class="collection-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                <div>
+                  <div style="font-weight:600;">{{ p.get_tipo_display }}</div>
 
-                {% if p.tipo == "CREDITO" %}
-                  <div class="grey-text" style="font-size:12px;">
-                    {% if p.plan %}{{ p.plan.tarjeta }} — {% endif %}
-                    {{ p.cuotas }} cuotas
-                    {% if p.recargo_pct|add:0 > 0 %} — Recargo {{ p.recargo_pct|num_ar }}%{% endif %}
-                  </div>
-                {% endif %}
+                  {% if p.tipo == "CREDITO" %}
+                    <div class="grey-text venta-payment-meta">
+                      {% if p.plan %}{{ p.plan.tarjeta }} — {% endif %}
+                      {{ p.cuotas }} cuotas
+                      {% if p.recargo_pct|add:0 > 0 %} — Recargo {{ p.recargo_pct|num_ar }}%{% endif %}
+                    </div>
+                  {% endif %}
 
-                
+                  
 
-                {% if p.tipo == "CUENTA_CORRIENTE" and p.referencia %}
-                  <div class="grey-text" style="font-size:10px;">
-                    {{ p.referencia|cut:"Cuenta corriente — "|cut:"Cuenta corriente - " }}
-                  </div>
-                {% elif p.referencia %}
-                  <div class="grey-text" style="font-size:10px;">Ref: {{ p.referencia }}</div>
-                {% endif %}
+                  {% if p.tipo == "CUENTA_CORRIENTE" and p.referencia %}
+                    <div class="grey-text venta-payment-ref">
+                      {{ p.referencia|cut:"Cuenta corriente — "|cut:"Cuenta corriente - " }}
+                    </div>
+                  {% elif p.referencia %}
+                    <div class="grey-text venta-payment-ref">Ref: {{ p.referencia }}</div>
+                  {% endif %}
+                </div>
 
-              <div style="text-align:right; white-space:nowrap;">
-                <strong>${{ p.monto|num_ar }}</strong>
-                {% if p.tipo == "CREDITO" and p.recargo_calc|add:0 > 0 %}
-                  <div class="grey-text" style="font-size:12px;">Recargo: +${{ p.recargo_calc|num_ar }}</div>
-                {% endif %}
-              </div>
-            </li>
-          {% endfor %}
-        </ul>
+                <div class="venta-payment-amount">
+                  <strong>${{ p.monto|num_ar }}</strong>
+                  {% if p.tipo == "CREDITO" and p.recargo_calc|add:0 > 0 %}
+                    <div class="grey-text venta-payment-extra">Recargo: +${{ p.recargo_calc|num_ar }}</div>
+                  {% endif %}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
 
-        <div style="margin-top:14px; text-align:right;">
-          <span class="grey-text text-darken-2">Total venta:</span>
-          <strong style="font-size:18px;">
-            {{ last_sale_total_final|num_ar }}
-          </strong>
+          <div class="venta-total-line" style="text-align:right;">
+            <span class="grey-text text-darken-2">Total venta:</span>
+            <strong style="font-size:18px;">
+              {{ last_sale_total_final|num_ar }}
+            </strong>
+          </div>
         </div>
 
       </div>
 
-      <div class="modal-footer">
+      <div class="modal-footer venta-modal-footer">
       
 
       <a href="#!" class="modal-close btn-flat">Cerrar</a>
