@@ -61,6 +61,8 @@ class Venta(models.Model):
     blank=True,
     on_delete=models.PROTECT,
     related_name="ventas",
+    db_constraint=False,
+    db_index=False,
     )
 
 
