@@ -2,6 +2,7 @@ services:
   - type: web
     name: tienda-ropa
     env: python
+    plan: free
     buildCommand: bash build.sh
     startCommand: bash start.sh
     healthCheckPath: /login/
