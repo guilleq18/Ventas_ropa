@@ -8,6 +8,8 @@ urlpatterns = [
     # POS
     # =========================
     path("", views.pos, name="pos"),
+    path("abrir/", views.caja_abrir, name="caja_abrir"),
+    path("cerrar/", views.caja_cerrar, name="caja_cerrar"),
 
     # =========================
     # Buscar / Scanner

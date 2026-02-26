@@ -1,4 +1,4 @@
-<div>
+<div data-fiscal-preview-root>
   <h5 style="margin-top:0;">Generador de variantes</h5>
   <p class="grey-text" style="margin-top:-10px;"><b>{{ producto.nombre }}</b></p>
 
@@ -33,15 +33,18 @@
         {{ form.codigo_barras_base }}
         <label class="active" for="{{ form.codigo_barras_base.id_for_label }}">Código de barras base (opcional)</label>
         <span class="grey-text" style="font-size:12px;">
-          Si lo cargás, se asigna a cada variante con sufijo incremental (001, 002, ...).
+          Si lo cargás, se asigna el mismo código a todas las variantes generadas.
         </span>
         {% if form.codigo_barras_base.errors %}<span class="red-text">{{ form.codigo_barras_base.errors }}</span>{% endif %}
       </div>
 
       <div class="input-field col s12 m6">
         {{ form.precio }}
-        <label class="active" for="{{ form.precio.id_for_label }}">Precio</label>
+        <label class="active" for="{{ form.precio.id_for_label }}">Precio final (IVA incluido)</label>
         {% if form.precio.errors %}<span class="red-text">{{ form.precio.errors }}</span>{% endif %}
+        <span class="grey-text" style="font-size:12px;">
+          Precio final inicial para cada variante generada.
+        </span>
       </div>
 
       <div class="input-field col s12 m6">
@@ -59,10 +62,86 @@
       </div>
     </div>
 
+    <div class="card-panel blue-grey lighten-5" style="margin-top:6px; padding:10px 12px;">
+      <div style="font-weight:700; margin-bottom:4px;">Vista previa fiscal (IVA 21%)</div>
+      <div class="grey-text" style="font-size:12px; line-height:1.25; margin-bottom:8px;">
+        Referencia para el precio de lista final. Promociones/descuentos se aplicarán luego en la venta.
+      </div>
+      <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:13px;">
+        <div>Final: <b data-fiscal-final>$0,00</b></div>
+        <div>Sin imp. nac.: <b data-fiscal-neto>$0,00</b></div>
+        <div>IVA contenido: <b data-fiscal-iva>$0,00</b></div>
+      </div>
+    </div>
+
     <div class="right-align" style="margin-top:10px;">
       <button class="btn-large" type="submit">
         <i class="material-icons left">bolt</i>Generar
       </button>
     </div>
   </form>
+
+  <script>
+    (function () {
+      const root = document.currentScript.closest("[data-fiscal-preview-root]");
+      if (!root) return;
+
+      const precioInput = root.querySelector('input[name="precio"]');
+      const finalEl = root.querySelector("[data-fiscal-final]");
+      const netoEl = root.querySelector("[data-fiscal-neto]");
+      const ivaEl = root.querySelector("[data-fiscal-iva]");
+      if (!precioInput || !finalEl || !netoEl || !ivaEl) return;
+
+      const fmt = new Intl.NumberFormat("es-AR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      function parseDecimal(raw) {
+        let txt = String(raw || "").trim();
+        if (!txt) return NaN;
+        txt = txt.replace(/\$/g, "").replace(/\s/g, "");
+
+        const hasComma = txt.includes(",");
+        const hasDot = txt.includes(".");
+        if (hasComma && hasDot) {
+          if (txt.lastIndexOf(",") > txt.lastIndexOf(".")) {
+            txt = txt.replace(/\./g, "").replace(",", ".");
+          } else {
+            txt = txt.replace(/,/g, "");
+          }
+        } else if (hasComma) {
+          txt = txt.replace(",", ".");
+        }
+
+        return Number(txt);
+      }
+
+      function money(n) {
+        return Math.round((n + Number.EPSILON) * 100) / 100;
+      }
+
+      function updatePreview() {
+        const finalValue = parseDecimal(precioInput.value);
+        if (!Number.isFinite(finalValue) || finalValue < 0) {
+          finalEl.textContent = "$0,00";
+          netoEl.textContent = "$0,00";
+          ivaEl.textContent = "$0,00";
+          return;
+        }
+
+        const finalMonto = money(finalValue);
+        const neto = money(finalMonto / 1.21);
+        const iva = money(finalMonto - neto);
+
+        finalEl.textContent = "$" + fmt.format(finalMonto);
+        netoEl.textContent = "$" + fmt.format(neto);
+        ivaEl.textContent = "$" + fmt.format(iva);
+      }
+
+      precioInput.addEventListener("input", updatePreview);
+      precioInput.addEventListener("change", updatePreview);
+      updatePreview();
+    })();
+  </script>
 </div>

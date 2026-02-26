@@ -23,8 +23,15 @@
           </div>
 
           <div class="input-field col s12 m3">
-            <input type="text" name="sucursal" value="{{ sucursal }}">
-            <label class="active">Sucursal (ID)</label>
+            <select name="sucursal">
+              <option value="" {% if not sucursal %}selected{% endif %}>Todas</option>
+              {% for s in sucursales_disponibles %}
+                <option value="{{ s.id }}" {% if sucursal == s.id|stringformat:"s" %}selected{% endif %}>
+                  {{ s.nombre }}
+                </option>
+              {% endfor %}
+            </select>
+            <label>Sucursal</label>
           </div>
 
           <div class="input-field col s12 m3">
@@ -39,7 +46,7 @@
 
           <div class="input-field col s12">
             <input type="text" name="q" value="{{ q }}">
-            <label class="active">Buscar (ID / sucursal)</label>
+            <label class="active">Buscar (ID / código / sucursal)</label>
           </div>
         </div>
 
@@ -61,7 +68,7 @@
         <table class="striped">
           <thead>
             <tr>
-              <th>ID</th>
+              <th>Código</th>
               <th>Fecha</th>
               <th>Sucursal</th>
               <th>Estado</th>
@@ -73,7 +80,7 @@
           <tbody>
             {% for v in page_obj.object_list %}
               <tr>
-                <td>#{{ v.id }}</td>
+                <td>{{ v.codigo_sucursal }}</td>
                 <td>{{ v.fecha|date:"d/m/Y"}}</td>
                 <td>{{ v.sucursal.nombre }}</td>
                 <td>{{ v.get_estado_display }}</td>

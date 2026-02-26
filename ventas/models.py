@@ -1,7 +1,11 @@
+from decimal import Decimal
+
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
 from core.models import Sucursal
+from core.fiscal import desglosar_monto_final_gravado_con_iva
 from catalogo.models import Variante
 
 
@@ -20,6 +24,8 @@ class PlanCuotas(models.Model):
 
 
 class Venta(models.Model):
+    CODIGO_DIGITS = 11
+
     class Estado(models.TextChoices):
         BORRADOR = "BORRADOR", "Borrador"
         CONFIRMADA = "CONFIRMADA", "Confirmada"
@@ -33,6 +39,21 @@ class Venta(models.Model):
         CUENTA_CORRIENTE = "CUENTA_CORRIENTE", "Cuenta corriente"
 
     sucursal = models.ForeignKey(Sucursal, on_delete=models.PROTECT)
+    numero_sucursal = models.PositiveBigIntegerField(null=True, blank=True)
+    caja_sesion = models.ForeignKey(
+        "caja.CajaSesion",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="ventas",
+    )
+    cajero = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="ventas_realizadas",
+    )
     fecha = models.DateTimeField(default=timezone.now)
     cliente = models.ForeignKey(
     "cuentas_corrientes.Cliente",
@@ -48,8 +69,53 @@ class Venta(models.Model):
 
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
+    # Snapshot fiscal/empresa para reimpresiones consistentes del ticket.
+    empresa_nombre_snapshot = models.CharField(max_length=80, blank=True, default="")
+    empresa_razon_social_snapshot = models.CharField(max_length=120, blank=True, default="")
+    empresa_cuit_snapshot = models.CharField(max_length=20, blank=True, default="")
+    empresa_direccion_snapshot = models.CharField(max_length=255, blank=True, default="")
+    empresa_condicion_fiscal_snapshot = models.CharField(max_length=40, blank=True, default="")
+
+    fiscal_items_sin_impuestos_nacionales = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    fiscal_items_iva_contenido = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    fiscal_items_otros_impuestos_nacionales_indirectos = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sucursal", "numero_sucursal"],
+                name="ventas_numero_sucursal_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["sucursal", "numero_sucursal"]),
+        ]
+
+    @property
+    def codigo_sucursal(self) -> str:
+        if self.numero_sucursal:
+            return f"V{int(self.numero_sucursal):0{self.CODIGO_DIGITS}d}"
+        if self.id:
+            return f"#{self.id}"
+        return "s/n"
+
     def __str__(self):
-        return f"Venta #{self.id} - {self.sucursal.nombre} - {self.fecha:%Y-%m-%d %H:%M}"
+        return f"Venta {self.codigo_sucursal} - {self.sucursal.nombre} - {self.fecha:%Y-%m-%d %H:%M}"
 
 
 class VentaItem(models.Model):
@@ -57,11 +123,74 @@ class VentaItem(models.Model):
     variante = models.ForeignKey(Variante, on_delete=models.PROTECT)
     cantidad = models.PositiveIntegerField()
     precio_unitario = models.DecimalField(max_digits=12, decimal_places=2)
+    iva_alicuota_pct = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("21.00"))
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    precio_unitario_sin_impuestos_nacionales = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    precio_unitario_iva_contenido = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    subtotal_sin_impuestos_nacionales = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    subtotal_iva_contenido = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+    subtotal_otros_impuestos_nacionales_indirectos = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    def _aplicar_snapshot_fiscal(self):
+        alicuota = self.iva_alicuota_pct if self.iva_alicuota_pct is not None else Decimal("21.00")
+        unitario = desglosar_monto_final_gravado_con_iva(
+            self.precio_unitario or Decimal("0.00"),
+            iva_alicuota_pct=alicuota,
+        )
+        subtotal = desglosar_monto_final_gravado_con_iva(
+            self.subtotal or Decimal("0.00"),
+            iva_alicuota_pct=alicuota,
+        )
+
+        self.precio_unitario_sin_impuestos_nacionales = unitario.monto_sin_impuestos_nacionales
+        self.precio_unitario_iva_contenido = unitario.iva_contenido
+        self.subtotal_sin_impuestos_nacionales = subtotal.monto_sin_impuestos_nacionales
+        self.subtotal_iva_contenido = subtotal.iva_contenido
+        self.subtotal_otros_impuestos_nacionales_indirectos = (
+            subtotal.otros_impuestos_nacionales_indirectos
+        )
 
     def save(self, *args, **kwargs):
         self.subtotal = self.cantidad * self.precio_unitario
+        self._aplicar_snapshot_fiscal()
+
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            kwargs["update_fields"] = set(update_fields) | {
+                "subtotal",
+                "iva_alicuota_pct",
+                "precio_unitario_sin_impuestos_nacionales",
+                "precio_unitario_iva_contenido",
+                "subtotal_sin_impuestos_nacionales",
+                "subtotal_iva_contenido",
+                "subtotal_otros_impuestos_nacionales_indirectos",
+            }
         super().save(*args, **kwargs)
 
 

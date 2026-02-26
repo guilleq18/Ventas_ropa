@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 
 from core.models import Sucursal
+from core.fiscal import CondicionFiscalEmpresa, normalizar_condicion_fiscal_empresa
 from catalogo.models import Categoria
 from .models import UsuarioPerfil
 
@@ -130,3 +131,43 @@ class AdminPanelCategoriaForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["nombre"].label = "Nombre"
         self.fields["activa"].label = "Activa"
+
+
+class EmpresaDatosForm(forms.Form):
+    nombre = forms.CharField(
+        label="Nombre",
+        max_length=80,
+        required=False,
+        widget=forms.TextInput(attrs={"autocomplete": "organization", "class": "validate"}),
+    )
+    razon_social = forms.CharField(
+        label="Razón social",
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={"autocomplete": "organization", "class": "validate"}),
+    )
+    cuit = forms.CharField(
+        label="CUIT",
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={"autocomplete": "off", "class": "validate"}),
+    )
+    condicion_fiscal = forms.ChoiceField(
+        label="Condición fiscal",
+        required=False,
+        initial=CondicionFiscalEmpresa.DEFAULT,
+        choices=CondicionFiscalEmpresa.CHOICES,
+        widget=forms.Select(attrs={"class": "browser-default"}),
+    )
+    direccion = forms.CharField(
+        label="Dirección",
+        max_length=255,
+        required=False,
+        widget=forms.Textarea(attrs={"class": "materialize-textarea", "rows": 2}),
+    )
+
+    def clean_cuit(self):
+        return (self.cleaned_data.get("cuit") or "").strip()
+
+    def clean_condicion_fiscal(self):
+        return normalizar_condicion_fiscal_empresa(self.cleaned_data.get("condicion_fiscal"))

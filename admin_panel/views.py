@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from core.models import AppSetting
+from core.models import AppSetting, Sucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Value, Count, F, DecimalField, ExpressionWrapper
@@ -19,13 +19,44 @@ from django.db.models.deletion import ProtectedError
 import calendar
 from cuentas_corrientes.models import Cliente, CuentaCorriente
 from django.contrib import messages
-from admin_panel.services import get_ventas_flags, set_bool_setting
-from admin_panel.forms import AdminPanelUserForm, RoleForm, AdminPanelCategoriaForm
+from admin_panel.services import (
+    get_ventas_flags_catalog,
+    get_ventas_flags_ui,
+    set_ventas_flags,
+    get_str_setting,
+    set_str_setting,
+)
+from admin_panel.forms import AdminPanelUserForm, RoleForm, AdminPanelCategoriaForm, EmpresaDatosForm
 from catalogo.models import Categoria
+from core.fiscal import get_empresa_condicion_fiscal, set_empresa_condicion_fiscal
 
 
 
 import json
+
+
+EMPRESA_SETTINGS_MAP = {
+    "nombre": (
+        "empresa.nombre",
+        "",
+        "Nombre comercial de la empresa para tickets y pantallas.",
+    ),
+    "razon_social": (
+        "empresa.razon_social",
+        "",
+        "Razón social de la empresa.",
+    ),
+    "cuit": (
+        "empresa.cuit",
+        "",
+        "CUIT de la empresa.",
+    ),
+    "direccion": (
+        "empresa.direccion",
+        "",
+        "Dirección comercial/fiscal de la empresa.",
+    ),
+}
 
 
 def _parse_date(value: str):
@@ -299,6 +330,7 @@ def ventas_lista(request):
     q = (request.GET.get("q") or "").strip()
     sucursal_id = (request.GET.get("sucursal") or "").strip()
     estado = (request.GET.get("estado") or "").strip()
+    sucursales_disponibles = Sucursal.objects.filter(activa=True).order_by("nombre", "id")
 
     # None si NO viene en la URL
     raw_from = request.GET.get("from", None)
@@ -328,7 +360,12 @@ def ventas_lista(request):
     if q:
         filtros = Q()
         if q.isdigit():
-            filtros |= Q(id=int(q))
+            numero = int(q)
+            filtros |= Q(id=numero) | Q(numero_sucursal=numero)
+        else:
+            q_up = q.upper()
+            if q_up.startswith("V") and q_up[1:].isdigit():
+                filtros |= Q(numero_sucursal=int(q_up[1:]))
         filtros |= Q(sucursal__nombre__icontains=q)
         qs = qs.filter(filtros)
 
@@ -345,6 +382,7 @@ def ventas_lista(request):
         "from": raw_from or "",
         "to": raw_to or "",
         "sucursal": sucursal_id,
+        "sucursales_disponibles": sucursales_disponibles,
         "estado": estado,
         "estados": Venta.Estado.choices,
     })
@@ -394,26 +432,86 @@ def ventas_detalle(request, venta_id: int):
 @login_required
 @permission_required("core.change_appsetting", raise_exception=True)
 def settings_view(request):
-    if request.method == "POST":
-        set_bool_setting(
-            "ventas.permitir_sin_stock",
-            request.POST.get("permitir_sin_stock") == "on",
-            False,
-            "Permite confirmar venta aunque no haya stock suficiente."
-        )
-        set_bool_setting(
-            "ventas.permitir_cambiar_precio_venta",
-            request.POST.get("permitir_cambiar_precio_venta") == "on",
-            False,
-            "Permite cambiar el precio de venta en el POS."
-        )
-        messages.success(request, "Configuración de ventas actualizada.")
-        return redirect("admin_panel:settings")
+    sucursales_disponibles = list(Sucursal.objects.filter(activa=True).order_by("nombre", "id"))
+    selected_sucursal_raw = (
+        request.POST.get("sucursal") if request.method == "POST"
+        else request.GET.get("sucursal")
+    )
+    selected_sucursal_raw = (selected_sucursal_raw or "").strip()
 
-    flags = get_ventas_flags()
+    sucursal_seleccionada = None
+    if selected_sucursal_raw.isdigit():
+        sid = int(selected_sucursal_raw)
+        for s in sucursales_disponibles:
+            if s.id == sid:
+                sucursal_seleccionada = s
+                break
+
+    if sucursal_seleccionada is None and sucursales_disponibles:
+        sucursal_seleccionada = sucursales_disponibles[0]
+
+    if request.method == "POST":
+        if not sucursal_seleccionada:
+            messages.error(request, "No hay sucursales activas para configurar.")
+            return redirect("admin_panel:settings")
+
+        ventas_flag_values = {
+            item["name"]: (request.POST.get(item["name"]) == "on")
+            for item in get_ventas_flags_catalog()
+        }
+        set_ventas_flags(
+            sucursal=sucursal_seleccionada,
+            **ventas_flag_values,
+        )
+        messages.success(
+            request,
+            f"Configuración de ventas actualizada para la sucursal {sucursal_seleccionada.nombre}.",
+        )
+        return redirect(f"{reverse('admin_panel:settings')}?sucursal={sucursal_seleccionada.id}")
+
+    ventas_options = []
+    if sucursal_seleccionada:
+        ventas_options = get_ventas_flags_ui(sucursal=sucursal_seleccionada)
+
+    sections = [
+        {
+            "key": "ventas_operacion",
+            "title": "Ventas",
+            "subtitle": "Permisos operativos del POS para la sucursal seleccionada.",
+            "options": ventas_options,
+        },
+    ]
 
     return render(request, "admin_panel/settings.html", {
-        **flags,
+        "sucursales_disponibles": sucursales_disponibles,
+        "sucursal_seleccionada": sucursal_seleccionada,
+        "settings_sections": sections,
+    })
+
+
+@login_required
+@permission_required("core.change_appsetting", raise_exception=True)
+def empresa_datos(request):
+    if request.method == "POST":
+        form = EmpresaDatosForm(request.POST)
+        if form.is_valid():
+            for field_name, (key, default, description) in EMPRESA_SETTINGS_MAP.items():
+                set_str_setting(key, form.cleaned_data.get(field_name, ""), default, description)
+            set_empresa_condicion_fiscal(form.cleaned_data.get("condicion_fiscal"))
+
+            messages.success(request, "Datos de empresa actualizados.")
+            return redirect("admin_panel:empresa_datos")
+
+        messages.error(request, "Revisá los datos del formulario.")
+    else:
+        initial = {}
+        for field_name, (key, default, description) in EMPRESA_SETTINGS_MAP.items():
+            initial[field_name] = get_str_setting(key, default, description)
+        initial["condicion_fiscal"] = get_empresa_condicion_fiscal()
+        form = EmpresaDatosForm(initial=initial)
+
+    return render(request, "admin_panel/empresa_datos.html", {
+        "form": form,
     })
 
 

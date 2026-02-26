@@ -28,6 +28,7 @@ class VentaAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "sucursal",
+        "cajero",
         "fecha",
         "estado",
         "medio_pago",
@@ -35,15 +36,18 @@ class VentaAdmin(admin.ModelAdmin):
         "cliente_nombre",
         "total",
     )
-    list_filter = ("estado", "sucursal", "medio_pago")
+    list_filter = ("estado", "sucursal", "cajero", "medio_pago")
     date_hierarchy = "fecha"
     search_fields = (
         "id",
+        "cajero__username",
+        "cajero__first_name",
+        "cajero__last_name",
         "cliente__dni",
         "cliente__apellido",
         "cliente__nombre",
     )
-    list_select_related = ("sucursal", "cliente")
+    list_select_related = ("sucursal", "cliente", "cajero")
 
     inlines = [VentaItemInline, VentaPagoInline]
     actions = ["accion_confirmar"]

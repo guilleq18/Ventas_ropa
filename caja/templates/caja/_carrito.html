@@ -8,12 +8,15 @@
   <table class="highlight responsive-table" style="font-size:13px;">
     <thead>
       <tr>
-        <th style="width:36%;">Producto</th>
-        <th style="width:12%;">Stock</th>
-        <th style="width:16%;">Cant.</th>
-        <th style="width:18%;">Precio</th>
-        <th class="right-align" style="width:12%;">Subtotal</th>
-        <th class="right-align" style="width:6%;">Acción</th>
+        <th style="width:24%;">Producto</th>
+        <th style="width:9%;">Stock</th>
+        <th style="width:9%;">Cant.</th>
+        <th style="width:12%;">Precio</th>
+        <th class="right-align" style="width:10%;">Desc.</th>
+        <th class="right-align" style="width:12%;">Neto</th>
+        <th class="right-align" style="width:9%;">IVA</th>
+        <th class="right-align" style="width:11%;">Subtotal</th>
+        <th class="right-align" style="width:4%;">Acción</th>
       </tr>
     </thead>
 
@@ -78,6 +81,22 @@
             {% else %}
               <div style="height:32px; display:flex; align-items:center;">${{ it.precio|num_ar }}</div>
             {% endif %}
+          </td>
+
+          <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">
+            {% if it.descuento|add:0 > 0 %}
+              <span class="green-text text-darken-2">-${{ it.descuento|num_ar }}</span>
+            {% else %}
+              <span class="grey-text">$0,00</span>
+            {% endif %}
+          </td>
+
+          <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">
+            <span>${{ it.fiscal_subtotal.monto_sin_impuestos_nacionales|num_ar }}</span>
+          </td>
+
+          <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">
+            <span>${{ it.fiscal_subtotal.iva_contenido|num_ar }}</span>
           </td>
 
           <td class="right-align" style="padding-top:10px; padding-bottom:10px; white-space:nowrap;">

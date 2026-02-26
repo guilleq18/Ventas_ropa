@@ -1,9 +1,12 @@
+{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Ingresar | Sistema de Ventas</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'branding/vgc-favicon.svg' %}">
+  <link rel="shortcut icon" href="{% static 'branding/vgc-favicon.svg' %}">
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
 
@@ -26,8 +29,42 @@
       padding: 22px 22px;
       color: #fff;
     }
-    .auth-header h5 { margin:0; font-weight:600; }
-    .auth-header p { margin:6px 0 0 0; opacity:.9; }
+    .auth-brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+    .auth-brand img{
+      width:64px;
+      height:64px;
+      object-fit:contain;
+      border-radius:12px;
+      background: rgba(255,255,255,.10);
+      padding:2px;
+      box-shadow: 0 6px 16px rgba(0,0,0,.15);
+      flex:0 0 auto;
+    }
+    .auth-brand-copy{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .auth-brand-name{
+      margin:0;
+      font-size:1.35rem;
+      line-height:1;
+      font-weight:800;
+      letter-spacing:.3px;
+    }
+    .auth-brand-caption{
+      margin:0;
+      opacity:.9;
+      font-size:.88rem;
+      line-height:1.1;
+      font-weight:600;
+    }
+    .auth-header p { margin:10px 0 0 0; opacity:.9; }
     .auth-body { padding: 22px; }
     .helper-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .btn-full { width:100%; border-radius:10px; }
@@ -42,7 +79,13 @@
     <div class="container" style="max-width:520px;">
       <div class="card auth-card z-depth-2">
         <div class="auth-header">
-          <h5>Sistema de Ventas</h5>
+          <div class="auth-brand">
+            <img src="{% static 'branding/vgc-badge.svg' %}" alt="VGC">
+            <div class="auth-brand-copy">
+              <h5 class="auth-brand-name">VGC</h5>
+              <div class="auth-brand-caption">Sistema de Ventas</div>
+            </div>
+          </div>
           <p>Ingresá con tu usuario para continuar</p>
         </div>
 
@@ -94,8 +137,9 @@
                 <span>Recordarme</span>
               </label>
 
-              {# Si más adelante implementás reset, cambiás este link #}
-              <span class="grey-text small-note">¿Olvidaste tu clave? Consultá al administrador</span>
+              <a href="{% url 'password_reset' %}" class="grey-text text-darken-2 small-note">
+                ¿Olvidaste tu clave?
+              </a>
             </div>
 
             <button class="btn waves-effect waves-light btn-full" type="submit" style="background:linear-gradient(180deg, #7b4f43 0%, #6f463b 100%);">
@@ -112,7 +156,7 @@
       </div>
 
       <div class="center grey-text small-note" style="margin-top:12px;">
-        © {{ now|default:"" }} Sistema de Ventas
+        <span style="font-weight:700;">VGC</span> · Sistema de Ventas
       </div>
     </div>
   </div>

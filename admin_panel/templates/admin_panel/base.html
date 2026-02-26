@@ -1,9 +1,12 @@
+{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Admin{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'branding/vgc-favicon.svg' %}">
+  <link rel="shortcut icon" href="{% static 'branding/vgc-favicon.svg' %}">
 
   <!-- Materialize -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css">
@@ -141,10 +144,39 @@
     }
 
     .brand{
-      padding:16px 20px;
-      font-weight:700;
-      font-size:1.1rem;
+      padding:14px 12px 12px;
       color:#4a322a;
+    }
+    .brand-shell{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 12px;
+      border-radius:12px;
+      background: rgba(255,255,255,.38);
+      border:1px solid var(--ui-border);
+    }
+    .brand-shell img{
+      width:78px;
+      height:54px;
+      object-fit:contain;
+      border-radius:10px;
+      flex:0 0 auto;
+      box-shadow: 0 4px 10px rgba(80, 52, 40, 0.10);
+      background: rgba(255,255,255,.18);
+      padding:2px;
+    }
+    .brand-title{
+      font-weight:800;
+      font-size:1.2rem;
+      line-height:1.1;
+      color:#4a322a;
+    }
+    .brand-subtitle{
+      font-size:.82rem;
+      color: var(--ui-text-soft);
+      margin-top:2px;
+      line-height:1.1;
     }
     .menu-section{
       padding: 8px 20px;
@@ -243,14 +275,30 @@
   </header>
 
   <ul id="admin_user_dd" class="dropdown-content">
-    <li><a href="/admin/password_change/" target="_blank"><i class="material-icons">lock</i>Cambiar clave</a></li>
+    <li><a href="{% url 'password_change' %}"><i class="material-icons">lock</i>Cambiar clave</a></li>
     <li class="divider" tabindex="-1"></li>
-    <li><a href="{% url 'logout' %}"><i class="material-icons">logout</i>Salir</a></li>
+    <li>
+      <a href="{% url 'logout' %}" onclick="event.preventDefault(); document.getElementById('admin_logout_form').submit();">
+        <i class="material-icons">logout</i>Salir
+      </a>
+    </li>
   </ul>
+
+  <form id="admin_logout_form" method="post" action="{% url 'logout' %}" style="display:none;">
+    {% csrf_token %}
+  </form>
 
   <!-- Sidebar -->
   <ul id="admin-sidenav" class="sidenav sidenav-fixed">
-    <li class="brand">Sistema de Ventas</li>
+    <li class="brand">
+      <div class="brand-shell">
+        <img src="{% static 'branding/vgc-badge.svg' %}" alt="VGC">
+        <div>
+          <div class="brand-title">VGC</div>
+          <div class="brand-subtitle">Sistema de Ventas</div>
+        </div>
+      </div>
+    </li>
 
     <li class="menu-section">Principal</li>
     <li>
@@ -282,6 +330,11 @@
     <li>
       <a href="{% url 'admin_panel:settings' %}">
         <i class="material-icons">settings</i>Configuración
+  </a>
+</li>
+<li>
+  <a href="{% url 'admin_panel:empresa_datos' %}">
+    <i class="material-icons">storefront</i>Datos de empresa
   </a>
 </li>
 <li>

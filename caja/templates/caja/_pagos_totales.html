@@ -11,6 +11,26 @@
         <div style="font-weight:600; font-size:14px;">${{ total_base|num_ar }}</div>
       </div>
 
+      <div style="padding:8px 10px; background:#fff; border:1px dashed rgba(0,0,0,.12); border-radius:6px;">
+        <div class="grey-text text-darken-2" style="font-size:12px; margin-bottom:6px;">
+          {% if empresa_es_ri %}Transparencia fiscal{% else %}Detalle fiscal{% endif %}
+          · {{ empresa_condicion_fiscal_label }}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div class="grey-text text-darken-2" style="font-size:12px;">Sin imp. nac.</div>
+          <div style="font-weight:600; font-size:12px;">${{ fiscal_total_items.monto_sin_impuestos_nacionales|num_ar }}</div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:3px;">
+          <div class="grey-text text-darken-2" style="font-size:12px;">IVA contenido</div>
+          <div style="font-weight:600; font-size:12px;">${{ fiscal_total_items.iva_contenido|num_ar }}</div>
+        </div>
+        {% if recargos|add:0 > 0 %}
+          <div class="grey-text text-darken-1" style="font-size:11px; margin-top:6px; line-height:1.2;">
+            Los recargos de financiación se muestran aparte.
+          </div>
+        {% endif %}
+      </div>
+
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <div class="grey-text text-darken-2" style="font-size:13px;">Recargos</div>
         <div style="font-weight:600; font-size:14px;">${{ recargos|num_ar }}</div>

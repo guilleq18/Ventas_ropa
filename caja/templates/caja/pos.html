@@ -1,11 +1,13 @@
 {# templates/caja/pos.html #}
-{% load caja_extras %}
+{% load caja_extras static %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Caja</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'branding/vgc-favicon.svg' %}">
+  <link rel="shortcut icon" href="{% static 'branding/vgc-favicon.svg' %}">
 
   <!-- Materialize -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/materialize-css@1.0.0/dist/css/materialize.min.css">
@@ -438,11 +440,46 @@
     .pos-nav .brand-logo{
       font-weight: 800;
       letter-spacing: .2px;
+      line-height: 1 !important;
+      height: auto !important;
+      padding: 8px 0;
+      overflow: visible;
+    }
+    .pos-nav .brand-logo .brand-mark{
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+      border-radius: 12px;
+      flex: 0 0 auto;
+      display:block;
+      box-shadow: 0 4px 10px rgba(40, 20, 8, 0.18);
+      background: rgba(255,255,255,.10);
+      padding: 1px;
+    }
+    .pos-nav .brand-logo .brand-copy{
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      line-height:1;
+      gap:2px;
+    }
+    .pos-nav .brand-logo .brand-name{
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: .3px;
+      color: #fff;
+    }
+    .pos-nav .brand-logo .brand-caption{
+      font-size: 10px;
+      opacity: .84;
+      color: #fff;
+      font-weight: 600;
+      letter-spacing: .25px;
     }
     .pos-nav .nav-badge{
       font-size: 12px;
       opacity: .85;
-      margin-left: 10px;
+      margin-left: 6px;
       font-weight: 600;
     }
     .pos-nav .nav-chip{
@@ -484,6 +521,7 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
+      min-height: 64px;
     }
     .pos-nav .brand-logo{
       position: static !important;
@@ -510,9 +548,13 @@
       text-transform:none !important;
     }
 
-    @media (max-width: 1100px){
+    @media (max-width: 1280px){
       #nav_clock{ display:none; }
       #nav_date{ display:none; }
+      .pos-nav .brand-logo .brand-caption{ display:none; }
+    }
+    @media (max-width: 1180px){
+      .pos-nav .nav-badge{ display:none; }
     }
     /* =======================
        Buscar modal styles — estética
@@ -582,6 +624,141 @@
       min-height: 0;
       overflow: auto;
     }
+    /* =======================
+       Modal Buscar / Pagos (estilo POS real)
+    ======================= */
+    #buscar_modal.modal,
+    #pago_modal.modal{
+      left: 0 !important;
+      right: 0 !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      border-radius: 14px;
+      overflow: hidden !important;
+      background: var(--pos-card-bg);
+      border: 1px solid rgba(121, 85, 72, 0.14);
+      box-shadow: 0 16px 40px rgba(80, 52, 40, 0.18);
+    }
+    #pago_modal.modal{
+      max-width: 1080px;
+      width: 92% !important;
+    }
+    #buscar_modal .modal-content,
+    #pago_modal .modal-content{
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.65), rgba(255,255,255,0) 48%),
+        var(--pos-card-bg);
+      padding: 12px 12px 0;
+    }
+    #pago_modal #pago_modal_content{
+      overflow: auto;
+      background: transparent;
+    }
+    #buscar_modal .modal-footer,
+    #pago_modal .modal-footer{
+      background: linear-gradient(180deg, rgba(242,224,212,.9), rgba(247,238,232,.95));
+      border-top: 1px solid rgba(121, 85, 72, 0.12);
+      padding: 10px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap: 8px;
+    }
+    #buscar_modal .modal-footer .btn,
+    #pago_modal .modal-footer .btn,
+    #buscar_modal .modal-footer .btn-flat,
+    #pago_modal .modal-footer .btn-flat{
+      border-radius: 10px;
+    }
+    #buscar_modal > .modal-content > .white,
+    #pago_modal #pago_modal_content > .white{
+      background: transparent !important;
+    }
+
+    /* Bloques sticky internos de ambos modales con lenguaje de card-head */
+    #buscar_modal .white > .row > .col > .card-panel,
+    #pago_modal .white > .row > .col > .card-panel{
+      background: var(--pos-card-head) !important;
+      border: 1px solid rgba(121, 85, 72, 0.10) !important;
+      border-radius: var(--pos-radius-md);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+    }
+
+    /* Modal de búsqueda: resultados dentro de panel POS */
+    #buscar_modal_scroll{
+      padding-top: 10px !important;
+    }
+    #buscar_modal_resultados{
+      padding: 10px 12px 12px !important;
+      border-radius: var(--pos-radius-md);
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      background: rgba(255,255,255,.52);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+    }
+    #buscar_modal #buscar_modal_resultados .collection{
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid rgba(121, 85, 72, 0.10);
+      background: #fff;
+      margin: 0;
+    }
+    #buscar_modal #buscar_modal_resultados .collection .collection-item{
+      background: rgba(255,255,255,.92);
+      border-bottom: 1px solid rgba(121, 85, 72, 0.08);
+    }
+    #buscar_modal #buscar_modal_resultados .collection .collection-item:last-child{
+      border-bottom: none;
+    }
+    #buscar_modal .input-field{
+      border-radius: 10px;
+    }
+    #buscar_modal .input-field input[type=text]{
+      border-bottom-color: rgba(121, 85, 72, 0.18) !important;
+    }
+    #buscar_modal .progress{
+      background: rgba(0,150,136,.12);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    /* Modal de pagos: paneles, chips y cuerpo alineados al POS */
+    #pago_modal #pagos_modal_body{
+      padding-top: 10px !important;
+      padding-bottom: 4px !important;
+    }
+    #pago_modal #pagos_modal_body > .card-panel.grey.lighten-4{
+      background: rgba(255,255,255,.58) !important;
+    }
+    #pago_modal .chip{
+      border: 1px solid rgba(121, 85, 72, 0.08);
+      border-radius: 999px;
+    }
+    #pago_modal .btn,
+    #pago_modal .btn-flat{
+      border-radius: 10px;
+    }
+    #pago_modal .input-field input[type=text],
+    #pago_modal .select-wrapper input.select-dropdown{
+      border-bottom-color: rgba(121, 85, 72, 0.18);
+    }
+    #pago_modal .progress{
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    @media (max-width: 600px){
+      #buscar_modal.modal,
+      #pago_modal.modal{
+        width: 95% !important;
+      }
+      #buscar_modal .modal-content,
+      #pago_modal .modal-content{
+        padding: 10px 10px 0;
+      }
+      #buscar_modal .modal-footer,
+      #pago_modal .modal-footer{
+        padding: 10px 12px;
+      }
+    }
     .pos-shell-card{
       margin: 0;
       padding: 14px 14px 10px;
@@ -606,7 +783,8 @@
       border: 1px solid rgba(0,0,0,.06);
       box-shadow: var(--pos-shadow-soft);
     }
-    #buscar_modal .card-panel{
+    #buscar_modal .card-panel,
+    #pago_modal .card-panel{
       border-radius: var(--pos-radius-md);
       border: 1px solid rgba(121, 85, 72, 0.10);
       box-shadow: 0 6px 18px rgba(106, 68, 51, 0.07);
@@ -681,7 +859,7 @@
           </div>
 
           <div class="grey-text text-darken-1" style="font-size:12px; margin-bottom:8px;">
-            #{{ last_sale.id }} · {{ last_sale.fecha|date:"d/m H:i" }}
+            {{ last_sale.codigo_sucursal }} · {{ last_sale.fecha|date:"d/m H:i" }}
           </div>
 
           <div class="rail-kpi">
@@ -735,7 +913,11 @@
   <nav class="pos-nav z-depth-1">
     <div class="nav-wrapper container">
       <a href="{% url 'caja:pos' %}" class="brand-logo">
-        Caja <span class="nav-badge">POS</span>
+        <img class="brand-mark" src="{% static 'branding/vgc-favicon.svg' %}" alt="VGC">
+        <span class="brand-copy">
+          <span class="brand-name">VGC</span>
+          <span class="brand-caption">Sistema de Ventas</span>
+        </span>
       </a>
 
       <a href="#" data-target="mobile_nav" class="sidenav-trigger">
@@ -757,12 +939,14 @@
           </a>
         </li>
 
-        <li>
-          <a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}">
-            <i class="material-icons">admin_panel_settings</i>
-            Admin Panel
-          </a>
-        </li>
+        {% if request.user.is_superuser or perms.admin_panel.view_usuarioperfil %}
+          <li>
+            <a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}">
+              <i class="material-icons">admin_panel_settings</i>
+              Admin Panel
+            </a>
+          </li>
+        {% endif %}
         <li>
           <span class="nav-chip">
             <i class="material-icons">store</i>
@@ -795,27 +979,125 @@
   </nav>
 
   <ul id="user_dd" class="dropdown-content">
-    <li><a href="/admin/password_change/" target="_blank"><i class="material-icons">lock</i>Cambiar clave</a></li>
+    <li><a href="{% url 'password_change' %}"><i class="material-icons">lock</i>Cambiar clave</a></li>
     <li class="divider" tabindex="-1"></li>
-    <li><a href="/admin/logout/"><i class="material-icons">logout</i>Salir</a></li>
+    <li>
+      <a href="{% url 'logout' %}" onclick="event.preventDefault(); document.getElementById('pos_logout_form').submit();">
+        <i class="material-icons">logout</i>Salir
+      </a>
+    </li>
   </ul>
+
+  <form id="pos_logout_form" method="post" action="{% url 'logout' %}" style="display:none;">
+    {% csrf_token %}
+  </form>
 
   <ul class="sidenav" id="mobile_nav">
     <li>
       <div class="user-view" style="background:#0f172a;">
-        <span class="white-text" style="font-weight:800;">Caja POS</span>
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <img src="{% static 'branding/vgc-badge.svg' %}" alt="VGC" style="width:52px; height:34px; object-fit:contain; border-radius:8px;">
+          <div>
+            <div class="white-text" style="font-weight:800; line-height:1.1;">VGC</div>
+            <div class="white-text" style="opacity:.85; font-size:12px; line-height:1.1;">Sistema de Ventas</div>
+          </div>
+        </div>
         <span class="white-text" style="opacity:.85;">{{ sucursal.nombre }}</span>
         <span class="white-text" style="opacity:.85;">{{ request.user.username|default:"Usuario" }}</span>
       </div>
     </li>
     <li><a href="{% url 'core:dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
     <li><a href="{% url 'caja:pos' %}"><i class="material-icons">point_of_sale</i>Caja</a></li>
-    <li><a href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
-    <li><a href="/admin/logout/"><i class="material-icons">logout</i>Salir</a></li>
+    {% if request.user.is_superuser or perms.admin_panel.view_usuarioperfil %}
+      <li><a href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
+    {% endif %}
+    <li>
+      <a href="{% url 'logout' %}" onclick="event.preventDefault(); document.getElementById('pos_logout_form').submit();">
+        <i class="material-icons">logout</i>Salir
+      </a>
+    </li>
   </ul>
 
   <div class="container pos-container" style="margin-top:18px;">
     <div class="card pos-shell-card">
+      <div class="card-panel" style="margin:0 0 12px; border-radius:12px; border:1px solid rgba(121,85,72,.12); background:rgba(255,255,255,.55);">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div style="min-width:260px; flex:1 1 360px;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              {% if caja_activa %}
+                {% if caja_puede_vender %}
+                  <span class="chip green lighten-4 green-text text-darken-3" style="font-weight:600;">Caja abierta (tuya)</span>
+                {% else %}
+                  <span class="chip orange lighten-4 orange-text text-darken-4" style="font-weight:600;">Caja abierta (otro cajero)</span>
+                {% endif %}
+              {% else %}
+                <span class="chip red lighten-4 red-text text-darken-3" style="font-weight:600;">Caja cerrada</span>
+              {% endif %}
+              {% if caja_cajero_activo %}
+                <span class="chip" style="font-weight:500;">
+                  Cajero: {{ caja_cajero_activo.get_full_name|default:caja_cajero_activo.username }}
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="grey-text text-darken-2" style="font-size:13px; margin-top:4px;">
+              {{ caja_estado_texto }}
+            </div>
+
+            {% if caja_cierre_resumen %}
+              <div class="teal-text text-darken-3" style="font-size:13px; margin-top:6px; font-weight:500;">
+                Cierre registrado: {{ caja_cierre_resumen.cantidad }} ventas por ${{ caja_cierre_resumen.total|num_ar }}
+              </div>
+            {% endif %}
+          </div>
+
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            {% if not caja_activa %}
+              <form method="post"
+                    action="{% url 'caja:caja_abrir' %}"
+                    hx-post="{% url 'caja:caja_abrir' %}"
+                    hx-swap="none"
+                    style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn green darken-1 waves-effect waves-light">
+                  <i class="material-icons left">lock_open</i>Abrir caja
+                </button>
+              </form>
+            {% elif caja_puede_vender %}
+              <form method="post"
+                    action="{% url 'caja:caja_cerrar' %}"
+                    hx-post="{% url 'caja:caja_cerrar' %}"
+                    hx-swap="none"
+                    style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn red darken-1 waves-effect waves-light">
+                  <i class="material-icons left">lock</i>Cerrar caja
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card-panel" style="margin:0 0 12px; border-radius:12px; border:1px dashed rgba(121,85,72,.18); background:rgba(255,255,255,.62);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div class="grey-text text-darken-2" style="font-size:13px; font-weight:600;">
+            Atajos de teclado
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <span class="chip" style="margin:0; font-weight:600;">
+              <span class="mono" style="font-weight:800;">F1</span>&nbsp;Buscar
+            </span>
+            <span class="chip" style="margin:0; font-weight:600;">
+              <span class="mono" style="font-weight:800;">F2</span>&nbsp;Pagos
+            </span>
+            <span class="chip" style="margin:0; font-weight:600;">
+              <span class="mono" style="font-weight:800;">F5</span>&nbsp;Confirmar venta
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
 
       <!-- Columna 1: Carrito -->
@@ -829,7 +1111,7 @@
 
                 <div class="card-head-actions">
 
-                  <button id="btn_open_buscar" type="button" class="btn blue darken-1 waves-effect waves-light" style="margin-right:8px;">
+                  <button id="btn_open_buscar" type="button" class="btn blue darken-1 waves-effect waves-light" style="margin-right:8px;" title="Buscar productos (F1)" {% if not caja_puede_vender %}disabled{% endif %}>
                     <i class="material-icons left">search</i>Buscar
                   </button>
 
@@ -840,16 +1122,17 @@
                          autocapitalize="off"
                          spellcheck="false"
                          inputmode="none"
-                         placeholder="Escanear código (lector)"
+                         placeholder="{% if caja_puede_vender %}Escanear código (lector){% else %}Caja no habilitada para vender{% endif %}"
                          aria-label="Escaneo rápido por lector de código de barras"
-                         title="Solo lecturas por lector (rápidas + Enter)">
+                         title="Solo lecturas por lector (rápidas + Enter)"
+                         {% if not caja_puede_vender %}disabled{% endif %}>
 
                   <form hx-post="{% url 'caja:carrito_vaciar' %}"
                         hx-target="#carrito_body"
                         hx-swap="innerHTML"
                         style="margin:0;">
                     {% csrf_token %}
-                    <button class="btn red lighten-1 waves-effect waves-light" type="submit">
+                    <button class="btn red lighten-1 waves-effect waves-light" type="submit" {% if not caja_puede_vender %}disabled{% endif %}>
                       Vaciar
                     </button>
                   </form>
@@ -883,11 +1166,14 @@
                         hx-swap="innerHTML"
                         style="margin:0;">
                     {% csrf_token %}
-                    <button type="button"
+                    <button id="btn_open_pagos"
+                            type="button"
                             class="btn green darken-1 waves-effect waves-light"
                             hx-post="{% url 'caja:pagos_modal_open' %}"
                             hx-target="#pago_modal_content"
-                            hx-swap="innerHTML">
+                            hx-swap="innerHTML"
+                            title="Abrir pagos (F2)"
+                            {% if not caja_puede_vender %}disabled{% endif %}>
                       <i class="material-icons left">add</i>AGREGAR
                     </button>
 
@@ -897,7 +1183,7 @@
                         hx-swap="none"
                         style="margin:0;">
                     {% csrf_token %}
-                    <button class="btn red lighten-1 waves-effect waves-light" type="submit">
+                    <button class="btn red lighten-1 waves-effect waves-light" type="submit" {% if not caja_puede_vender %}disabled{% endif %}>
                       Vaciar
                     </button>
                   </form>
@@ -927,6 +1213,7 @@
       <div class="card pos-sticky">
         <div class="card-content">
           <form
+            id="confirm_venta_form"
             hx-post="{% url 'caja:confirmar' %}"
             hx-target="#confirm_res"
             hx-swap="innerHTML"
@@ -946,8 +1233,8 @@
               </div>
 
               <div class="right">
-                <button class="btn-large waves-effect waves-light green touch-btn" type="submit">
-                  Confirmar venta
+                <button id="confirm_venta_btn" class="btn-large waves-effect waves-light green touch-btn" type="submit" title="Confirmar venta (F5)" {% if not caja_puede_vender %}disabled{% endif %}>
+                  {% if caja_puede_vender %}Confirmar venta{% else %}Caja no habilitada{% endif %}
                 </button>
               </div>
             </div>
@@ -1070,7 +1357,7 @@
   {% if last_sale %}
     <div id="venta_modal" class="modal modal-fixed-footer">
       <div class="modal-content">
-        <h5 class="venta-modal-title">Venta #{{ last_sale.id }}</h5>
+        <h5 class="venta-modal-title">{{ last_sale.codigo_sucursal }}</h5>
 
         <div class="grey-text venta-modal-meta">
           {{ last_sale.fecha|date:"d/m/Y H:i" }} — {{ last_sale.sucursal.nombre }}
@@ -1224,6 +1511,15 @@
       modalEl.style.right = "auto";
     }
 
+    function centerUiModal(modalEl){
+      if (!modalEl) return;
+      modalEl.style.position = "fixed";
+      modalEl.style.left = "0";
+      modalEl.style.right = "0";
+      modalEl.style.marginLeft = "auto";
+      modalEl.style.marginRight = "auto";
+    }
+
     function getCookie(name) {
       const value = `; ${document.cookie}`;
       const parts = value.split(`; ${name}=`);
@@ -1241,7 +1537,12 @@
       // Modal pagos
       const pagoModalEl = document.getElementById('pago_modal');
       if (pagoModalEl && window.M && M.Modal) {
-        M.Modal.init(pagoModalEl, { dismissible:true });
+        M.Modal.init(pagoModalEl, {
+          dismissible: true,
+          onOpenStart: () => centerUiModal(pagoModalEl),
+          onOpenEnd: () => centerUiModal(pagoModalEl)
+        });
+        centerUiModal(pagoModalEl);
       }
 
       // Modal Buscar: init + focus + limpiar + botón abrir
@@ -1250,20 +1551,25 @@
         M.Modal.init(buscarModalEl, {
           dismissible: true,
           onOpenStart: () => {
+            centerUiModal(buscarModalEl);
             setTimeout(() => {
               const q = document.getElementById('q_modal');
               if (q) q.focus();
             }, 50);
-          }
+          },
+          onOpenEnd: () => centerUiModal(buscarModalEl)
         });
+        centerUiModal(buscarModalEl);
       }
 
       const openBuscarBtn = document.getElementById('btn_open_buscar');
       if (openBuscarBtn) {
         openBuscarBtn.addEventListener('click', function () {
           if (!buscarModalEl || !window.M || !M.Modal) return;
+          centerUiModal(buscarModalEl);
           const inst = M.Modal.getInstance(buscarModalEl) || M.Modal.init(buscarModalEl, { dismissible:true });
           inst.open();
+          setTimeout(() => centerUiModal(buscarModalEl), 40);
         });
       }
 
@@ -1301,6 +1607,11 @@
         setTimeout(centerVentaModal, 50);
         window.addEventListener("resize", centerVentaModal);
       }
+
+      window.addEventListener("resize", function(){
+        centerUiModal(buscarModalEl);
+        centerUiModal(pagoModalEl);
+      });
 
       // Barra rápida de lector (solo acepta ráfagas de teclas típicas de escáner + Enter)
       const scanReaderInput = document.getElementById("scan_reader_input");
@@ -1372,8 +1683,10 @@
     document.body.addEventListener("openPagoModal", function(){
       const el = document.getElementById("pago_modal");
       if (!el || !window.M || !M.Modal) return;
+      centerUiModal(el);
       const inst = M.Modal.getInstance(el) || M.Modal.init(el, { dismissible:true });
       inst.open();
+      setTimeout(() => centerUiModal(el), 40);
     });
 
     document.body.addEventListener("closePagoModal", function(){
@@ -1382,6 +1695,64 @@
       const inst = M.Modal.getInstance(el);
       if (inst) inst.close();
     });
+
+    // =========================
+    // Atajos de teclado POS
+    // F1: Buscar productos
+    // F2: Pagos
+    // F5: Confirmar venta
+    // =========================
+    (function initPosShortcuts(){
+      function isAnyModalOpen() {
+        return !!document.querySelector(".modal.open");
+      }
+
+      function openBuscarShortcut() {
+        const btn = document.getElementById("btn_open_buscar");
+        if (!btn || btn.disabled) return;
+        btn.click();
+      }
+
+      function openPagosShortcut() {
+        const btn = document.getElementById("btn_open_pagos");
+        if (!btn || btn.disabled) return;
+        btn.click();
+      }
+
+      function confirmarVentaShortcut() {
+        const btn = document.getElementById("confirm_venta_btn");
+        const form = document.getElementById("confirm_venta_form");
+        if (!btn || !form || btn.disabled) return;
+        if (typeof form.requestSubmit === "function") form.requestSubmit();
+        else form.submit();
+      }
+
+      document.addEventListener("keydown", function (e) {
+        if (!e || e.repeat) return;
+        if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+        const key = (e.key || "").toUpperCase();
+        if (key !== "F1" && key !== "F2" && key !== "F5") return;
+
+        // Evita ayuda del navegador (F1) y refresh (F5)
+        e.preventDefault();
+
+        // Si hay un modal abierto, evitamos abrir otro o confirmar venta por accidente.
+        if (isAnyModalOpen()) return;
+
+        if (key === "F1") {
+          openBuscarShortcut();
+          return;
+        }
+        if (key === "F2") {
+          openPagosShortcut();
+          return;
+        }
+        if (key === "F5") {
+          confirmarVentaShortcut();
+        }
+      }, true);
+    })();
 
     // =========================
     // HTMX hooks
@@ -1435,6 +1806,35 @@
       // Mostrar el error via posToast en lugar de inyectar en el card de confirmación
       var msg = (evt && evt.detail && evt.detail.xhr && evt.detail.xhr.responseText) ? evt.detail.xhr.responseText : "Error al confirmar.";
       document.body.dispatchEvent(new CustomEvent('posToast', { detail: { message: msg } }));
+    });
+
+    function setConfirmVentaLoading(isLoading){
+      var btn = document.getElementById("confirm_venta_btn");
+      if (!btn) return;
+      if (isLoading) {
+        btn.dataset.prevText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "Procesando...";
+      } else {
+        btn.disabled = false;
+        if (btn.dataset.prevText) btn.textContent = btn.dataset.prevText;
+      }
+    }
+
+    document.body.addEventListener("htmx:beforeRequest", function (evt) {
+      var el = evt && evt.detail ? evt.detail.elt : null;
+      if (!el) return;
+      if (el.id === "confirm_venta_form" || (el.closest && el.closest("#confirm_venta_form"))) {
+        setConfirmVentaLoading(true);
+      }
+    });
+
+    document.body.addEventListener("htmx:afterRequest", function (evt) {
+      var el = evt && evt.detail ? evt.detail.elt : null;
+      if (!el) return;
+      if (el.id === "confirm_venta_form" || (el.closest && el.closest("#confirm_venta_form"))) {
+        setConfirmVentaLoading(false);
+      }
     });
 
     document.body.addEventListener("posToast", function (evt) {
@@ -1508,3 +1908,4 @@
 
 </body>
 </html>
+

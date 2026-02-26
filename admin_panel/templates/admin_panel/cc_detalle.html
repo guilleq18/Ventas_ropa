@@ -102,7 +102,7 @@
                     <td>{{ m.get_tipo_display }}</td>
                     <td>
                       {% if m.venta %}
-                        #{{ m.venta.id }}
+                        {{ m.venta.codigo_sucursal }}
                       {% else %}
                         -
                       {% endif %}

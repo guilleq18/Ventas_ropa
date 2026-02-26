@@ -28,6 +28,15 @@ class VarianteForm(forms.ModelForm):
         model = Variante
         fields = ["sku", "codigo_barras", "precio", "costo", "activo"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["precio"].label = "Precio final (IVA incluido)"
+        self.fields["precio"].widget.attrs.setdefault("inputmode", "decimal")
+        self.fields["precio"].widget.attrs.setdefault("placeholder", "Ej: 12100")
+        self.fields["costo"].widget.attrs.setdefault("inputmode", "decimal")
+        self.fields["talle"].widget.attrs.setdefault("autocomplete", "off")
+        self.fields["color"].widget.attrs.setdefault("autocomplete", "off")
+
 
 class GeneradorVariantesForm(forms.Form):
     # Combinaciones
@@ -53,7 +62,13 @@ class GeneradorVariantesForm(forms.Form):
     )
 
     # Datos por variante
-    precio = forms.DecimalField(required=True, max_digits=12, decimal_places=2)
+    precio = forms.DecimalField(
+        required=True,
+        max_digits=12,
+        decimal_places=2,
+        label="Precio final (IVA incluido)",
+        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+    )
     costo = forms.DecimalField(required=True, max_digits=12, decimal_places=2)
     activo = forms.BooleanField(required=False, initial=True)
 

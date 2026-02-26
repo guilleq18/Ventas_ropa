@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,8 +46,6 @@ INSTALLED_APPS = [
     "cuentas_corrientes",
 
 ]
-LOGIN_URL = "/admin/login/"
-LOGIN_REDIRECT_URL = "/catalogo/"
 # settings.py
 POS_SUCURSAL_ID = 1
 
@@ -147,4 +146,41 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return bool(default)
+    return str(raw).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
+# =========================
+# Email / Recuperación de contraseña
+# =========================
+# Si no configurás SMTP en desarrollo, el email se imprime en la consola del servidor.
+EMAIL_HOST = os.getenv("EMAIL_HOST", "").strip()
+EMAIL_BACKEND = (
+    os.getenv("DJANGO_EMAIL_BACKEND", "").strip()
+    or (
+        "django.core.mail.backends.smtp.EmailBackend"
+        if EMAIL_HOST
+        else "django.core.mail.backends.console.EmailBackend"
+    )
+)
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", False)
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "").strip()
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "15"))
+
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    (EMAIL_HOST_USER or "no-reply@vgc.local")
+).strip()
+SERVER_EMAIL = os.getenv("SERVER_EMAIL", DEFAULT_FROM_EMAIL).strip()
+
+# 24 horas por defecto para el link de recuperación
+PASSWORD_RESET_TIMEOUT = int(os.getenv("PASSWORD_RESET_TIMEOUT", str(60 * 60 * 24)))
 

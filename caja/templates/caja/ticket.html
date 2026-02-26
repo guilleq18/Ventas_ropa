@@ -1,11 +1,13 @@
-{% load caja_extras %}
+{% load caja_extras static %}
 
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ticket Venta #{{ venta.id }}</title>
+  <title>Ticket {{ venta.codigo_sucursal }}</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'branding/vgc-favicon.svg' %}">
+  <link rel="shortcut icon" href="{% static 'branding/vgc-favicon.svg' %}">
 
   <style>
     :root{
@@ -214,9 +216,10 @@
 
       <!-- Header -->
       <div class="pad center">
-        <div class="title">TICKET</div>
+        <div class="title">{{ empresa_nombre }}</div>
+        <div class="subtitle">TICKET</div>
         <div class="subtitle">
-          <span class="mono">Venta #{{ venta.id }}</span>
+          <span class="mono">{{ venta.codigo_sucursal }}</span>
           · {{ venta.sucursal.nombre }}
         </div>
         <div class="subtitle">{{ venta.fecha|date:"d/m/Y H:i" }}</div>
@@ -231,6 +234,35 @@
           <span class="muted">Fecha</span>
           <strong class="mono">{{ venta.fecha|date:"d/m/Y H:i" }}</strong>
         </div>
+        <div class="kv small">
+          <span class="muted">Cajero</span>
+          <strong>
+            {{ cajero_nombre }}
+            {% if cajero_id %}<span class="mono muted">(#{{ cajero_id }})</span>{% endif %}
+          </strong>
+        </div>
+        {% if empresa_razon_social %}
+          <div class="kv small">
+            <span class="muted">Razón social</span>
+            <strong>{{ empresa_razon_social }}</strong>
+          </div>
+        {% endif %}
+        {% if empresa_cuit %}
+          <div class="kv small">
+            <span class="muted">CUIT</span>
+            <strong class="mono">{{ empresa_cuit }}</strong>
+          </div>
+        {% endif %}
+        <div class="kv small">
+          <span class="muted">Cond. fiscal</span>
+          <strong>{{ empresa_condicion_fiscal_label }}</strong>
+        </div>
+        {% if empresa_direccion %}
+          <div class="kv small">
+            <span class="muted">Dirección</span>
+            <strong>{{ empresa_direccion }}</strong>
+          </div>
+        {% endif %}
 
         <div class="divider"></div>
       </div>
@@ -311,6 +343,49 @@
             <span style="font-weight:900;">TOTAL VENTA</span>
             <span class="grand mono">${{ total_final|num_ar }}</span>
           </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-title">Transparencia fiscal</div>
+        <div class="total-box">
+          {% if empresa_es_ri %}
+            <div class="small muted" style="line-height:1.25;">
+              Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)
+            </div>
+          {% else %}
+            <div class="small muted" style="line-height:1.25;">
+              Detalle fiscal informativo para precios al consumidor.
+            </div>
+          {% endif %}
+
+          <div class="kv small" style="margin-top:6px;">
+            <span class="muted">Base de cálculo</span>
+            <strong class="mono">Items: ${{ total_items|num_ar }}</strong>
+          </div>
+          <div class="kv small">
+            <span class="muted">Precio sin impuestos nacionales</span>
+            <strong class="mono">${{ fiscal_items.monto_sin_impuestos_nacionales|num_ar }}</strong>
+          </div>
+          <div class="kv small">
+            <span class="muted">IVA contenido</span>
+            <strong class="mono">${{ fiscal_items.iva_contenido|num_ar }}</strong>
+          </div>
+          <div class="kv small">
+            <span class="muted">Otros imp. nac. indirectos</span>
+            <strong class="mono">${{ fiscal_items.otros_impuestos_nacionales_indirectos|num_ar }}</strong>
+          </div>
+
+          {% if total_recargos|add:0 > 0 %}
+            <div class="small muted" style="margin-top:6px; line-height:1.25;">
+              El detalle fiscal se calcula sobre el total de items. Los recargos de financiación se muestran por separado.
+            </div>
+          {% endif %}
+          {% if empresa_es_monotributista %}
+            <div class="small muted" style="margin-top:6px; line-height:1.25;">
+              Empresa configurada como Monotributista.
+            </div>
+          {% endif %}
         </div>
 
         <div class="footer-note center">

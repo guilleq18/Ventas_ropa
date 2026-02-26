@@ -9,19 +9,29 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Sum
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, render, redirect
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from core.models import Sucursal
+from core.models import AppSetting
+from core.fiscal import (
+    CondicionFiscalEmpresa,
+    DesgloseFiscalMonto,
+    IVA_GENERAL_PCT,
+    desglosar_monto_final_gravado_con_iva,
+    get_empresa_condicion_fiscal,
+)
 from catalogo.models import Variante, StockSucursal
 from ventas.models import Venta, VentaItem, VentaPago, PlanCuotas
 from ventas.services import confirmar_venta
 from cuentas_corrientes.models import Cliente, CuentaCorriente, MovimientoCuentaCorriente
 
-from admin_panel.services import permitir_vender_sin_stock, permitir_cambiar_precio_venta, get_ventas_flags
+from admin_panel.services import permitir_vender_sin_stock, permitir_cambiar_precio_venta
+from .models import CajaSesion
 from .utils import handle_pos_errors
 
 
@@ -270,6 +280,47 @@ def _payments_build_ui_and_totals(payments: list, total_base: Decimal) -> dict:
     }
 
 
+def _desglose_fiscal_pos_safe(monto_final):
+    try:
+        return desglosar_monto_final_gravado_con_iva(monto_final)
+    except Exception:
+        return desglosar_monto_final_gravado_con_iva(Decimal("0.00"))
+
+
+def _ctx_fiscal_empresa_pos() -> dict:
+    condicion_code = get_empresa_condicion_fiscal()
+    return {
+        "empresa_condicion_fiscal_code": condicion_code,
+        "empresa_condicion_fiscal_label": dict(CondicionFiscalEmpresa.CHOICES).get(
+            condicion_code,
+            condicion_code or "-",
+        ),
+        "empresa_es_ri": (condicion_code == CondicionFiscalEmpresa.RESPONSABLE_INSCRIPTO),
+        "empresa_es_monotributista": (condicion_code == CondicionFiscalEmpresa.MONOTRIBUTISTA),
+    }
+
+
+def _ctx_fiscal_totales_pos(total_items) -> dict:
+    try:
+        total_items_dec = Decimal(str(total_items or "0")).quantize(Decimal("0.01"))
+    except Exception:
+        total_items_dec = Decimal("0.00")
+
+    return {
+        **_ctx_fiscal_empresa_pos(),
+        "fiscal_total_items": _desglose_fiscal_pos_safe(total_items_dec),
+    }
+
+
+def _decorar_variantes_con_fiscal(results):
+    for v in (results or []):
+        try:
+            v.fiscal_precio = _desglose_fiscal_pos_safe(getattr(v, "precio", Decimal("0.00")))
+        except Exception:
+            v.fiscal_precio = _desglose_fiscal_pos_safe(Decimal("0.00"))
+    return results
+
+
 
 def _ctx_pagos_pos(request) -> dict:
     payments = _payments_get(request) or []
@@ -346,6 +397,7 @@ def _ctx_pagos_pos(request) -> dict:
         "saldo": pay_ctx["saldo"],
         "tarjetas": tarjetas,
         "tipos": tipos,
+        **_ctx_fiscal_totales_pos(total_base),
     }
 
 
@@ -400,11 +452,13 @@ def _render_pagos_modal_body_html(request) -> str:
 # Endpoints: Modal Pagos (abrir / agregar / guardar / quitar)
 # ======================================================================
 
+@handle_pos_errors
 @login_required
 def pagos_modal_open(request):
     """
     Abre el modal mostrando los pagos actuales (SIN crear uno nuevo).
     """
+    _validar_caja_usuario(request)
     resp = HttpResponse(_render_pagos_modal_body_html(request) + _oob_pagos_html(request))
     resp["HX-Trigger"] = json.dumps({"openPagoModal": {}})
     return resp
@@ -418,6 +472,7 @@ def pagos_add_modal(request):
     Agrega una nueva forma de pago y abre el modal.
     Si el carrito está vacío, NO crea pagos (solo muestra el aviso del modal).
     """
+    _validar_caja_usuario(request)
     total_base = _cart_total(_cart_get(request))
     if total_base <= 0:
         return pagos_modal_open(request)
@@ -435,6 +490,7 @@ def pagos_add_modal(request):
 @login_required
 @require_POST
 def pagos_set_modal(request, idx: int):
+    _validar_caja_usuario(request)
     payments = _payments_get(request) or []
     if not (0 <= idx < len(payments)):
         return HttpResponse("Índice inválido", status=400)
@@ -529,6 +585,7 @@ def pagos_del_modal(request, idx: int):
     """
     Quitar desde el modal (y refrescar modal + card).
     """
+    _validar_caja_usuario(request)
     payments = _payments_get(request) or []
     if 0 <= idx < len(payments):
         payments.pop(idx)
@@ -544,6 +601,7 @@ def pagos_del_table(request, idx: int):
     """
     Quitar desde la tabla del card (sin devolver modal).
     """
+    _validar_caja_usuario(request)
     payments = _payments_get(request) or []
     if 0 <= idx < len(payments):
         payments.pop(idx)
@@ -559,6 +617,7 @@ def pagos_vaciar_table(request):
     """
     Vaciar pagos desde el card (sin devolver modal).
     """
+    _validar_caja_usuario(request)
     _payments_save(request, [])
     return HttpResponse(_oob_pagos_html(request))
 
@@ -567,8 +626,10 @@ def pagos_vaciar_table(request):
 # Endpoint: Cuotas (HTMX)
 # ======================================================================
 
+@handle_pos_errors
 @login_required
 def pagos_cuotas(request, idx: int):
+    _validar_caja_usuario(request)
     tarjeta = (request.GET.get("tarjeta") or "").strip()
 
     planes = (
@@ -626,6 +687,134 @@ def _get_pos_sucursal(request):
         "No tenés una sucursal asignada para operar en Caja. "
         "Asignala desde Admin Panel > Usuarios."
     )
+
+
+def _nombre_usuario_caja(user) -> str:
+    if not user:
+        return "usuario"
+    full_name = (getattr(user, "get_full_name", lambda: "")() or "").strip()
+    return full_name or getattr(user, "username", "") or f"Usuario #{getattr(user, 'id', '')}"
+
+
+def _get_caja_sesion_activa(sucursal, for_update: bool = False):
+    qs = CajaSesion.objects.select_related("cajero_apertura").filter(
+        sucursal=sucursal,
+        cerrada_en__isnull=True,
+    )
+    if for_update:
+        qs = qs.select_for_update()
+    return qs.first()
+
+
+def _validar_caja_usuario(request, sucursal=None, for_update: bool = False):
+    """
+    Devuelve la sesión de caja abierta si el usuario autenticado es quien la abrió.
+    Si no hay caja abierta o está abierta por otro cajero, levanta ValidationError.
+    """
+    if sucursal is None:
+        sucursal = _get_pos_sucursal(request)
+
+    sesion = _get_caja_sesion_activa(sucursal, for_update=for_update)
+    if not sesion:
+        raise ValidationError(
+            f"La caja de {sucursal.nombre} está cerrada. Abrila para poder vender."
+        )
+
+    if sesion.cajero_apertura_id != request.user.id:
+        raise ValidationError(
+            f"La caja de {sucursal.nombre} está abierta por {_nombre_usuario_caja(sesion.cajero_apertura)}. "
+            "Solo ese cajero puede vender hasta cerrar caja."
+        )
+
+    return sesion
+
+
+def _build_caja_estado(request, sucursal):
+    sesion = _get_caja_sesion_activa(sucursal)
+    if not sesion:
+        return {
+            "caja_sesion_activa": None,
+            "caja_activa": False,
+            "caja_puede_vender": False,
+            "caja_abierta_por_otro": False,
+            "caja_cajero_activo": None,
+            "caja_estado_texto": "Caja cerrada. Abrí caja para habilitar ventas en esta sucursal.",
+        }
+
+    es_cajero_actual = sesion.cajero_apertura_id == getattr(request.user, "id", None)
+    if es_cajero_actual:
+        texto = (
+            f"Caja abierta por vos desde {timezone.localtime(sesion.abierta_en):%d/%m/%Y %H:%M}. "
+            "Podés operar ventas."
+        )
+    else:
+        texto = (
+            f"Caja abierta por {_nombre_usuario_caja(sesion.cajero_apertura)} desde "
+            f"{timezone.localtime(sesion.abierta_en):%d/%m/%Y %H:%M}. "
+            "No podés vender hasta que cierre caja."
+        )
+
+    return {
+        "caja_sesion_activa": sesion,
+        "caja_activa": True,
+        "caja_puede_vender": es_cajero_actual,
+        "caja_abierta_por_otro": not es_cajero_actual,
+        "caja_cajero_activo": sesion.cajero_apertura,
+        "caja_estado_texto": texto,
+    }
+
+
+def _get_ticket_empresa_nombre(sucursal=None) -> str:
+    """
+    Nombre de empresa para el ticket.
+    Prioridad:
+    1) AppSetting key='empresa.nombre' (value_str)
+    2) settings.EMPRESA_NOMBRE
+    3) nombre de sucursal (fallback)
+    """
+    setting = AppSetting.objects.filter(key="empresa.nombre").only("value_str").first()
+    if setting and (setting.value_str or "").strip():
+        return setting.value_str.strip()
+
+    cfg = (getattr(settings, "EMPRESA_NOMBRE", "") or "").strip()
+    if cfg:
+        return cfg
+
+    if sucursal is not None:
+        return (getattr(sucursal, "nombre", "") or "").strip() or "Mi empresa"
+
+    return "Mi empresa"
+
+
+def _get_ticket_empresa_datos(sucursal=None, venta=None) -> dict:
+    def _get_setting_str(key: str) -> str:
+        row = AppSetting.objects.filter(key=key).only("value_str").first()
+        return (getattr(row, "value_str", "") or "").strip()
+
+    venta = venta or None
+    snap_cond = (getattr(venta, "empresa_condicion_fiscal_snapshot", "") or "").strip() if venta else ""
+    condicion_code = snap_cond or get_empresa_condicion_fiscal()
+    condicion_label = dict(CondicionFiscalEmpresa.CHOICES).get(condicion_code, condicion_code or "-")
+
+    snap_nombre = (getattr(venta, "empresa_nombre_snapshot", "") or "").strip() if venta else ""
+    snap_razon_social = (getattr(venta, "empresa_razon_social_snapshot", "") or "").strip() if venta else ""
+    snap_cuit = (getattr(venta, "empresa_cuit_snapshot", "") or "").strip() if venta else ""
+    snap_direccion = (getattr(venta, "empresa_direccion_snapshot", "") or "").strip() if venta else ""
+
+    return {
+        "nombre": snap_nombre or _get_ticket_empresa_nombre(sucursal),
+        "razon_social": snap_razon_social or _get_setting_str("empresa.razon_social"),
+        "cuit": snap_cuit or _get_setting_str("empresa.cuit"),
+        "direccion": snap_direccion or _get_setting_str("empresa.direccion"),
+        "condicion_fiscal_code": condicion_code,
+        "condicion_fiscal_label": condicion_label,
+        "es_responsable_inscripto": (
+            condicion_code == CondicionFiscalEmpresa.RESPONSABLE_INSCRIPTO
+        ),
+        "es_monotributista": (
+            condicion_code == CondicionFiscalEmpresa.MONOTRIBUTISTA
+        ),
+    }
 
 
 # ======================================================================
@@ -701,14 +890,21 @@ def _build_cart_context(request):
         if qty <= 0:
             continue
 
-        subtotal = (precio * qty).quantize(Decimal("0.01"))
+        subtotal_bruto = (precio * qty).quantize(Decimal("0.01"))
+        # Preparado para promociones futuras: descuento por línea (hoy en 0).
+        descuento = Decimal("0.00")
+        subtotal = (subtotal_bruto - descuento).quantize(Decimal("0.01"))
         total += subtotal
 
         rows.append({
             "variante": v,
             "qty": qty,
             "precio": precio,
+            "subtotal_bruto": subtotal_bruto,
+            "descuento": descuento,
             "subtotal": subtotal,
+            "fiscal_precio": _desglose_fiscal_pos_safe(precio),
+            "fiscal_subtotal": _desglose_fiscal_pos_safe(subtotal),
         })
 
     total = total.quantize(Decimal("0.01"))
@@ -761,8 +957,9 @@ def _render_cart(request):
         "oob_pagos": False,
 
         # permisos/flags
-        "permitir_cambiar_precio_venta": permitir_cambiar_precio_venta(),
-        "permitir_sin_stock": permitir_vender_sin_stock(),
+        "permitir_cambiar_precio_venta": permitir_cambiar_precio_venta(sucursal),
+        "permitir_sin_stock": permitir_vender_sin_stock(sucursal),
+        **_ctx_fiscal_totales_pos(total_base),
     })
 
 
@@ -780,10 +977,14 @@ def _render_cart_with_toast(request, message: str):
 @handle_pos_errors
 @login_required
 def pos(request):
-    token = str(uuid.uuid4())
-    request.session["pos_confirm_token"] = token
+    token = request.session.get("pos_confirm_token")
+    if not token:
+        token = str(uuid.uuid4())
+        request.session["pos_confirm_token"] = token
 
     sucursal = _get_pos_sucursal(request)
+    caja_estado = _build_caja_estado(request, sucursal)
+    caja_cierre_resumen = request.session.pop("pos_caja_cierre_resumen", None)
     cart_ctx = _build_cart_context(request)
     cart_variante_ids = [row["variante"].id for row in cart_ctx["items"]]
     stock_map = _build_stock_map(sucursal, cart_variante_ids)
@@ -845,8 +1046,8 @@ def pos(request):
         "cart_items": cart_ctx["items"],
         "cart_total": cart_ctx["total"],
         "stock_map": stock_map,
-        "permitir_cambiar_precio_venta": permitir_cambiar_precio_venta(),
-        "permitir_sin_stock": permitir_vender_sin_stock(),
+        "permitir_cambiar_precio_venta": permitir_cambiar_precio_venta(sucursal),
+        "permitir_sin_stock": permitir_vender_sin_stock(sucursal),
 
         # pagos para el card
         "payments": pay_ctx["ui_payments"],
@@ -862,7 +1063,76 @@ def pos(request):
         "last_sale_total_items": last_sale_total_items,
         "last_sale_pagos": last_sale_pagos,
         "last_sale_total_final": last_sale_total_final,
+        "caja_cierre_resumen": caja_cierre_resumen,
+        **_ctx_fiscal_totales_pos(total_base),
+        **caja_estado,
     })
+
+
+@handle_pos_errors
+@login_required
+@require_POST
+def caja_abrir(request):
+    sucursal = _get_pos_sucursal(request)
+
+    with transaction.atomic():
+        # MySQL no soporta la unique constraint condicional; serializamos por sucursal.
+        Sucursal.objects.select_for_update().only("id").get(id=sucursal.id)
+        sesion = _get_caja_sesion_activa(sucursal, for_update=True)
+        if sesion:
+            if sesion.cajero_apertura_id != request.user.id:
+                raise ValidationError(
+                    f"La caja de {sucursal.nombre} ya está abierta por {_nombre_usuario_caja(sesion.cajero_apertura)}."
+                )
+        else:
+            CajaSesion.objects.create(
+                sucursal=sucursal,
+                cajero_apertura=request.user,
+            )
+
+    request.session["pos_confirm_token"] = str(uuid.uuid4())
+    request.session.modified = True
+
+    is_hx = request.headers.get("HX-Request") == "true" or request.META.get("HTTP_HX_REQUEST") == "true"
+    if is_hx:
+        resp = HttpResponse("")
+        resp["HX-Redirect"] = "/caja/"
+        return resp
+    return redirect("caja:pos")
+
+
+@handle_pos_errors
+@login_required
+@require_POST
+def caja_cerrar(request):
+    sucursal = _get_pos_sucursal(request)
+
+    with transaction.atomic():
+        sesion = _validar_caja_usuario(request, sucursal=sucursal, for_update=True)
+        sesion.cerrar(user=request.user)
+        sesion.save(update_fields=["cajero_cierre", "cerrada_en"])
+
+        resumen = (
+            Venta.objects
+            .filter(caja_sesion=sesion, estado=Venta.Estado.CONFIRMADA)
+            .aggregate(cantidad=Count("id"), total=Sum("total"))
+        )
+
+    _cart_save(request, {})
+    _payments_save(request, [])
+    request.session["pos_confirm_token"] = str(uuid.uuid4())
+    request.session["pos_caja_cierre_resumen"] = {
+        "cantidad": int(resumen.get("cantidad") or 0),
+        "total": str((resumen.get("total") or Decimal("0.00")).quantize(Decimal("0.01"))),
+    }
+    request.session.modified = True
+
+    is_hx = request.headers.get("HX-Request") == "true" or request.META.get("HTTP_HX_REQUEST") == "true"
+    if is_hx:
+        resp = HttpResponse("")
+        resp["HX-Redirect"] = "/caja/"
+        return resp
+    return redirect("caja:pos")
 
 
 # ======================================================================
@@ -888,6 +1158,7 @@ def buscar_variantes(request):
             .order_by("producto__nombre", "sku")[:50]
         )
         results = list(qs)
+        _decorar_variantes_con_fiscal(results)
 
     sucursal = _get_pos_sucursal(request)
 
@@ -905,7 +1176,8 @@ def buscar_variantes(request):
         "results": results,
         "sucursal": sucursal,
         "stock_map": stock_map,
-        "permitir_sin_stock": permitir_vender_sin_stock(),
+        "permitir_sin_stock": permitir_vender_sin_stock(sucursal),
+        **_ctx_fiscal_empresa_pos(),
     })
 
 
@@ -913,6 +1185,7 @@ def buscar_variantes(request):
 @login_required
 @require_POST
 def scan_add(request):
+    _validar_caja_usuario(request)
     q = (request.POST.get("q") or "").strip()
     if not q:
         return HttpResponse("Código vacío", status=400)
@@ -950,6 +1223,7 @@ def scan_add(request):
         )
         .order_by("producto__nombre", "sku")[:50]
     )
+    _decorar_variantes_con_fiscal(results)
 
     sucursal = _get_pos_sucursal(request)
     stock_map = {}
@@ -966,6 +1240,8 @@ def scan_add(request):
         "results": results,
         "sucursal": sucursal,
         "stock_map": stock_map,
+        "permitir_sin_stock": permitir_vender_sin_stock(sucursal),
+        **_ctx_fiscal_empresa_pos(),
     })
     resp["HX-Retarget"] = "#resultados"
     resp["HX-Reswap"] = "innerHTML"
@@ -982,12 +1258,13 @@ def scan_add(request):
 def carrito_agregar(request, variante_id: int):
     v = get_object_or_404(Variante, id=variante_id, activo=True)
     sucursal = _get_pos_sucursal(request)
+    _validar_caja_usuario(request, sucursal=sucursal)
 
     stock = _get_stock_disponible(sucursal, v.id)
     cart = _cart_get(request)
     key = str(v.id)
     qty_actual = int(cart.get(key, {}).get("qty", 0))
-    perm_sin_stock = permitir_vender_sin_stock()
+    perm_sin_stock = permitir_vender_sin_stock(sucursal)
 
     # Cuando no está permitido vender sin stock, validar disponibilidad
     if not perm_sin_stock:
@@ -1010,9 +1287,11 @@ def carrito_agregar(request, variante_id: int):
 @login_required
 @require_POST
 def carrito_set_qty(request, variante_id: int):
+    _validar_caja_usuario(request)
     cart = _cart_get(request)
     key = str(variante_id)
-    perm_sin_stock = permitir_vender_sin_stock()
+    sucursal = _get_pos_sucursal(request)
+    perm_sin_stock = permitir_vender_sin_stock(sucursal)
 
     if key not in cart:
         return _render_cart(request)
@@ -1025,7 +1304,6 @@ def carrito_set_qty(request, variante_id: int):
     if qty < 1:
         qty = 1
 
-    sucursal = _get_pos_sucursal(request)
     stock = _get_stock_disponible(sucursal, variante_id)
 
     if stock <= 0 and not perm_sin_stock:
@@ -1050,7 +1328,9 @@ def carrito_set_qty(request, variante_id: int):
 @require_POST
 def carrito_set_precio(request, variante_id: int):
     """Permite actualizar el precio unitario en el carrito si el flag lo autoriza."""
-    if not permitir_cambiar_precio_venta():
+    _validar_caja_usuario(request)
+    sucursal = _get_pos_sucursal(request)
+    if not permitir_cambiar_precio_venta(sucursal):
         return _render_cart(request)
 
     cart = _cart_get(request)
@@ -1077,6 +1357,7 @@ def carrito_set_precio(request, variante_id: int):
 @login_required
 @require_POST
 def carrito_quitar(request, variante_id: int):
+    _validar_caja_usuario(request)
     cart = _cart_get(request)
     key = str(variante_id)
     if key in cart:
@@ -1089,6 +1370,7 @@ def carrito_quitar(request, variante_id: int):
 @login_required
 @require_POST
 def carrito_vaciar(request):
+    _validar_caja_usuario(request)
     _cart_save(request, {})
     _payments_save(request, [])  # limpiar pagos
     return _render_cart(request)
@@ -1106,9 +1388,15 @@ def confirmar(request):
     session_token = request.session.get("pos_confirm_token")
 
     if not session_token or sent_token != session_token:
-        return HttpResponse("Operación ya procesada o token inválido.", status=409)
+        resp = HttpResponse("Operación ya procesada o token inválido.", status=409)
+        is_hx = request.headers.get("HX-Request") == "true" or request.META.get("HTTP_HX_REQUEST") == "true"
+        if is_hx:
+            # Refresca el POS para resincronizar token y estado en caso de doble click o token viejo.
+            resp["HX-Redirect"] = "/caja/"
+        return resp
 
     sucursal = _get_pos_sucursal(request)
+    _validar_caja_usuario(request, sucursal=sucursal)
 
     cart = _cart_get(request)
     if not cart:
@@ -1217,11 +1505,14 @@ def confirmar(request):
 
     try:
         with transaction.atomic():
+            caja_sesion = _validar_caja_usuario(request, sucursal=sucursal, for_update=True)
             # =========================
             # Venta
             # =========================
             venta = Venta.objects.create(
                 sucursal=sucursal,
+                caja_sesion=caja_sesion,
+                cajero=request.user,
                 estado=Venta.Estado.BORRADOR,
                 medio_pago=Venta.MedioPago.EFECTIVO,
                 total=total_cobrar,
@@ -1347,7 +1638,7 @@ def confirmar(request):
 def ticket(request, venta_id: int):
     venta = get_object_or_404(
         Venta.objects
-        .select_related("sucursal")
+        .select_related("sucursal", "cajero")
         .prefetch_related(
             "items__variante__producto",
             "items__variante__atributos__atributo",
@@ -1384,11 +1675,45 @@ def ticket(request, venta_id: int):
     total_items = sum((it.subtotal or Decimal("0.00")) for it in venta.items.all()).quantize(Decimal("0.01"))
     total_recargos = sum((p.recargo_monto or Decimal("0.00")) for p in venta.pagos.all()).quantize(Decimal("0.01"))
     total_final = (venta.total or Decimal("0.00")).quantize(Decimal("0.01"))
+    empresa_datos = _get_ticket_empresa_datos(venta.sucursal, venta=venta)
+
+    if (
+        getattr(venta, "fiscal_items_sin_impuestos_nacionales", None) is not None
+        and getattr(venta, "fiscal_items_iva_contenido", None) is not None
+    ):
+        fiscal_items = DesgloseFiscalMonto(
+            monto_final=total_items,
+            monto_sin_impuestos_nacionales=Decimal(venta.fiscal_items_sin_impuestos_nacionales or 0).quantize(Decimal("0.01")),
+            iva_contenido=Decimal(venta.fiscal_items_iva_contenido or 0).quantize(Decimal("0.01")),
+            iva_alicuota_pct=IVA_GENERAL_PCT,
+            otros_impuestos_nacionales_indirectos=Decimal(
+                getattr(venta, "fiscal_items_otros_impuestos_nacionales_indirectos", 0) or 0
+            ).quantize(Decimal("0.01")),
+        )
+    else:
+        fiscal_items = desglosar_monto_final_gravado_con_iva(total_items)
+
+    cajero_nombre = "-"
+    cajero_id = None
+    if getattr(venta, "cajero", None):
+        cajero_id = venta.cajero_id
+        cajero_nombre = (venta.cajero.get_full_name() or "").strip() or venta.cajero.username
 
     auto_print = (request.GET.get("print") == "1")
 
     return render(request, "caja/ticket.html", {
         "venta": venta,
+        "empresa_nombre": empresa_datos["nombre"],
+        "empresa_razon_social": empresa_datos["razon_social"],
+        "empresa_cuit": empresa_datos["cuit"],
+        "empresa_direccion": empresa_datos["direccion"],
+        "empresa_condicion_fiscal_code": empresa_datos["condicion_fiscal_code"],
+        "empresa_condicion_fiscal_label": empresa_datos["condicion_fiscal_label"],
+        "empresa_es_ri": empresa_datos["es_responsable_inscripto"],
+        "empresa_es_monotributista": empresa_datos["es_monotributista"],
+        "fiscal_items": fiscal_items,
+        "cajero_nombre": cajero_nombre,
+        "cajero_id": cajero_id,
         "total_items": total_items,
         "total_recargos": total_recargos,
         "total_final": total_final,
@@ -1414,6 +1739,7 @@ def pagos_add(request):
     """
     Endpoint viejo: agrega un pago y devuelve body + OOB.
     """
+    _validar_caja_usuario(request)
     total_base = _cart_total(_cart_get(request))
     if total_base <= 0:
         # si el carrito está vacío, solo refrescamos para no crear pagos basura
@@ -1433,6 +1759,7 @@ def pagos_del(request, idx: int):
     """
     Endpoint viejo: quita un pago por índice y devuelve body + OOB.
     """
+    _validar_caja_usuario(request)
     payments = _payments_get(request) or []
     if 0 <= idx < len(payments):
         payments.pop(idx)
@@ -1445,6 +1772,7 @@ def pagos_del(request, idx: int):
 @login_required
 @require_POST
 def pagos_set(request, idx: int):
+    _validar_caja_usuario(request)
     payments = _payments_get(request) or []
     if not (0 <= idx < len(payments)):
         return HttpResponse("Índice inválido", status=400)
@@ -1492,8 +1820,10 @@ def pagos_set(request, idx: int):
 # Cuenta Corriente: búsqueda y selección de cliente (modal)
 # =========================
 
+@handle_pos_errors
 @login_required
 def cc_buscar_clientes(request, idx: int):
+    _validar_caja_usuario(request)
     q = (request.GET.get("q") or "").strip()
 
     results = []
@@ -1523,6 +1853,7 @@ def cc_buscar_clientes(request, idx: int):
 @login_required
 @require_POST
 def cc_pick_cliente_modal(request, idx: int, cliente_id: int):
+    _validar_caja_usuario(request)
     payments = _payments_get(request) or []
     if not (0 <= idx < len(payments)):
         return HttpResponse("Índice inválido", status=400)
