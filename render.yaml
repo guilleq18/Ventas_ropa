@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: tienda-ropa
+    env: python
+    buildCommand: bash build.sh
+    startCommand: bash start.sh
+    healthCheckPath: /login/
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_ALLOWED_HOSTS
+        sync: false
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_USE_SSL
+        value: "1"
+      - key: DB_SSL_CA
+        value: /etc/ssl/certs/ca-certificates.crt
+      - key: DB_TIDB_AUTO_SSL
+        value: "1"

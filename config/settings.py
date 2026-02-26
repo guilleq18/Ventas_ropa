@@ -10,23 +10,134 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
+from urllib.parse import unquote, urlparse
+
+try:
+    import whitenoise  # noqa: F401
+    HAS_WHITENOISE = True
+except ImportError:
+    HAS_WHITENOISE = False
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return bool(default)
+    return str(raw).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
+def _env_list(name: str, default: list[str] | None = None) -> list[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return list(default or [])
+    return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or str(raw).strip() == "":
+        return int(default)
+    return int(str(raw).strip())
+
+
+def _strip_wrapping_quotes(value: str) -> str:
+    value = (value or "").strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1]
+    return value
+
+
+def _build_database_config() -> dict:
+    """
+    Soporta dos modos:
+    - DATABASE_URL (mysql://...)
+    - variables DB_* (ideal para Render + TiDB Cloud)
+    """
+    db = {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("DB_NAME", "tienda_ropa"),
+        "USER": _strip_wrapping_quotes(os.getenv("DB_USER", "tienda_user")),
+        "PASSWORD": os.getenv("DB_PASSWORD", "1331!"),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": str(os.getenv("DB_PORT", "3306")),
+    }
+
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url:
+        parsed = urlparse(database_url)
+        scheme = (parsed.scheme or "").lower()
+        if not scheme.startswith("mysql"):
+            raise RuntimeError(
+                "DATABASE_URL debe ser MySQL-compatible (mysql://...) para este proyecto."
+            )
+        db.update(
+            {
+                "NAME": (parsed.path or "/").lstrip("/"),
+                "USER": _strip_wrapping_quotes(unquote(parsed.username or "")),
+                "PASSWORD": unquote(parsed.password or ""),
+                "HOST": parsed.hostname or db["HOST"],
+                "PORT": str(parsed.port or db["PORT"]),
+            }
+        )
+
+    options = {"charset": "utf8mb4"}
+
+    # TiDB Cloud suele requerir TLS (puerto 4000). En Render normalmente
+    # funciona con el bundle del sistema Linux.
+    auto_tidb_ssl = _env_bool("DB_TIDB_AUTO_SSL", True)
+    use_ssl = _env_bool("DB_USE_SSL", False)
+    ssl_ca = os.getenv("DB_SSL_CA", "").strip()
+
+    if auto_tidb_ssl and not ssl_ca and str(db["PORT"]) == "4000":
+        ssl_ca = "/etc/ssl/certs/ca-certificates.crt"
+        use_ssl = True
+
+    if ssl_ca and not use_ssl:
+        use_ssl = True
+
+    if use_ssl:
+        ssl_dict = {}
+        if ssl_ca:
+            ssl_dict["ca"] = ssl_ca
+        options["ssl"] = ssl_dict
+
+    db["OPTIONS"] = options
+    db["CONN_MAX_AGE"] = _env_int("DB_CONN_MAX_AGE", 60)
+    db["CONN_HEALTH_CHECKS"] = _env_bool("DB_CONN_HEALTH_CHECKS", True)
+
+    return {"default": db}
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-plmq0@z44508b9ot8pn^ea$8h3xv+@yb0%y211#sq7*ikyaqsb'
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-plmq0@z44508b9ot8pn^ea$8h3xv+@yb0%y211#sq7*ikyaqsb",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_bool("DJANGO_DEBUG", True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", ["127.0.0.1", "localhost"])
+if (render_hostname := os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()):
+    if render_hostname not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(render_hostname)
+
+CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS", [])
+if render_hostname:
+    render_origin = f"https://{render_hostname}"
+    if render_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(render_origin)
+
+if not DEBUG and SECRET_KEY.startswith("django-insecure-"):
+    raise RuntimeError("Definí DJANGO_SECRET_KEY en producción.")
 
 
 # Application definition
@@ -59,6 +170,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+if HAS_WHITENOISE:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+elif not DEBUG:
+    raise RuntimeError(
+        "Falta instalar 'whitenoise' para producción. Ejecutá pip install -r requirements.txt."
+    )
 
 ROOT_URLCONF = 'config.urls'
 
@@ -87,17 +204,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": "tienda_ropa",
-        "USER": "tienda_user",
-        "PASSWORD": "1331!",
-        "HOST": "127.0.0.1",
-        "PORT": "3306",
-        "OPTIONS": {"charset": "utf8mb4"},
-    }
-}
+DATABASES = _build_database_config()
 
 
 
@@ -136,7 +243,23 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if (not DEBUG and HAS_WHITENOISE)
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        )
+    },
+}
+
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_USE_FINDERS = DEBUG
+WHITENOISE_KEEP_ONLY_HASHED_FILES = not DEBUG
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -147,12 +270,21 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "core:dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
+# Proxy SSL (Render)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = _env_bool("USE_X_FORWARDED_HOST", True)
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return bool(default)
-    return str(raw).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+if not DEBUG:
+    SECURE_SSL_REDIRECT = _env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
+    SESSION_COOKIE_SECURE = _env_bool("DJANGO_SESSION_COOKIE_SECURE", True)
+    CSRF_COOKIE_SECURE = _env_bool("DJANGO_CSRF_COOKIE_SECURE", True)
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = _env_int("DJANGO_SECURE_HSTS_SECONDS", 0)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = _env_bool(
+        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS", False
+    )
+    SECURE_HSTS_PRELOAD = _env_bool("DJANGO_SECURE_HSTS_PRELOAD", False)
 
 
 # =========================
