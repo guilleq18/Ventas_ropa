@@ -17,11 +17,27 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='venta',
             name='caja_sesion',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='ventas', to='caja.cajasesion'),
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name='ventas',
+                to='caja.cajasesion',
+                db_constraint=False,
+                db_index=False,
+            ),
         ),
         migrations.AddField(
             model_name='venta',
             name='cajero',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='ventas_realizadas', to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name='ventas_realizadas',
+                to=settings.AUTH_USER_MODEL,
+                db_constraint=False,
+                db_index=False,
+            ),
         ),
     ]

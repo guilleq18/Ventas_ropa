@@ -46,6 +46,8 @@ class Venta(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="ventas",
+        db_constraint=False,
+        db_index=False,
     )
     cajero = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -53,6 +55,8 @@ class Venta(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="ventas_realizadas",
+        db_constraint=False,
+        db_index=False,
     )
     fecha = models.DateTimeField(default=timezone.now)
     cliente = models.ForeignKey(
