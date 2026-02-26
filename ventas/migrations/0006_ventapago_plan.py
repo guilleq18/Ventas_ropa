@@ -14,6 +14,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='ventapago',
             name='plan',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='ventas.plancuotas'),
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                to='ventas.plancuotas',
+                db_constraint=False,
+                db_index=False,
+            ),
         ),
     ]

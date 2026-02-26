@@ -214,7 +214,14 @@ class VentaPago(models.Model):
     recargo_pct = models.DecimalField(max_digits=5, decimal_places=2, default=0)   # ej 28.00
     recargo_monto = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-    plan = models.ForeignKey(PlanCuotas, null=True, blank=True, on_delete=models.PROTECT)
+    plan = models.ForeignKey(
+        PlanCuotas,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        db_constraint=False,
+        db_index=False,
+    )
 
     # Para transferencia / QR
     referencia = models.CharField(max_length=120, blank=True)
