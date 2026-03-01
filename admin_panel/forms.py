@@ -98,6 +98,38 @@ class AdminPanelUserForm(forms.ModelForm):
         return user
 
 
+class AdminPanelUserPasswordForm(forms.Form):
+    password1 = forms.CharField(
+        label="Nueva contraseña",
+        required=True,
+        widget=forms.PasswordInput(render_value=False),
+    )
+    password2 = forms.CharField(
+        label="Repetir nueva contraseña",
+        required=True,
+        widget=forms.PasswordInput(render_value=False),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["password1"].widget.attrs.setdefault("class", "validate")
+        self.fields["password2"].widget.attrs.setdefault("class", "validate")
+
+    def clean(self):
+        cleaned = super().clean()
+        p1 = (cleaned.get("password1") or "").strip()
+        p2 = (cleaned.get("password2") or "").strip()
+
+        if not p1:
+            self.add_error("password1", "La contraseña es obligatoria.")
+            return cleaned
+        if len(p1) < 6:
+            self.add_error("password1", "Usá al menos 6 caracteres.")
+        if p1 != p2:
+            self.add_error("password2", "Las contraseñas no coinciden.")
+        return cleaned
+
+
 class RoleForm(forms.ModelForm):
     permissions = forms.ModelMultipleChoiceField(
         label="Permisos",
@@ -171,3 +203,31 @@ class EmpresaDatosForm(forms.Form):
 
     def clean_condicion_fiscal(self):
         return normalizar_condicion_fiscal_empresa(self.cleaned_data.get("condicion_fiscal"))
+
+
+class SucursalCreateForm(forms.ModelForm):
+    class Meta:
+        model = Sucursal
+        fields = ["nombre", "direccion", "telefono", "activa"]
+        widgets = {
+            "nombre": forms.TextInput(attrs={"autocomplete": "off", "class": "validate"}),
+            "direccion": forms.TextInput(attrs={"autocomplete": "street-address", "class": "validate"}),
+            "telefono": forms.TextInput(attrs={"autocomplete": "tel", "class": "validate"}),
+            "activa": forms.CheckboxInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nombre"].label = "Nombre"
+        self.fields["direccion"].label = "Dirección"
+        self.fields["telefono"].label = "Teléfono"
+        self.fields["activa"].label = "Activa"
+
+    def clean_nombre(self):
+        return (self.cleaned_data.get("nombre") or "").strip()
+
+    def clean_direccion(self):
+        return (self.cleaned_data.get("direccion") or "").strip()
+
+    def clean_telefono(self):
+        return (self.cleaned_data.get("telefono") or "").strip()

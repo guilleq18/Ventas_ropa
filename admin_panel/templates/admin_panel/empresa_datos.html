@@ -3,78 +3,329 @@
 {% block header_title %}Datos de empresa{% endblock %}
 
 {% block content %}
-  <div class="row">
-    <div class="col s12 l8">
-      <div class="card">
-        <div class="card-content">
-          <span class="card-title">Datos de empresa</span>
-          <p class="grey-text" style="margin-top:0;">
-            Estos datos se usan en tickets y configuraciones comerciales del sistema.
-          </p>
+<style>
+  .empresa-admin-card { border-radius: 14px; }
+  .empresa-admin-card .card-content { padding-top: 10px; }
+  .empresa-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .empresa-subtle { color: #6b7280; font-size: 13px; }
+  .soft-panel {
+    border: 1px solid rgba(121, 85, 72, .12);
+    border-radius: 12px;
+    padding: 14px;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(60, 35, 20, .04);
+  }
+  .soft-panel h6 { margin: 0 0 14px; font-weight: 700; }
+  .table-wrap { overflow: auto; }
+  .compact-table td, .compact-table th {
+    padding: 10px 8px;
+    line-height: 1.35;
+    vertical-align: top;
+  }
+  .compact-table td {
+    white-space: normal;
+    word-break: break-word;
+  }
+  .field-errors { color: #c62828; font-size: 12px; margin-top: 4px; }
+  .status-chip {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .status-chip.active {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+  .status-chip.inactive {
+    background: #ffebee;
+    color: #c62828;
+  }
+  .inline-form { display: inline; }
+  .actions-cell {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 9px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6d4c41;
+    background: rgba(121, 85, 72, .06);
+    border: 1px solid rgba(121, 85, 72, .08);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .icon-btn:hover {
+    background: rgba(121, 85, 72, .12);
+    color: #4e342e;
+  }
+  @media (max-width: 992px) {
+    .soft-panel { margin-bottom: 14px; }
+  }
+</style>
 
-          <form method="post" novalidate>
-            {% csrf_token %}
+<div class="card empresa-admin-card">
+  <div class="card-content">
+    <div class="empresa-toolbar">
+      <div>
+        <span class="card-title" style="margin-bottom:4px;">Datos de empresa y sucursales</span>
+        <div class="empresa-subtle">
+          Configurá datos fiscales y administrá las sucursales desde una sola pantalla.
+        </div>
+      </div>
+      {% if active_tab == "sucursales" %}
+        <a href="{% url 'admin_panel:empresa_datos' %}?tab=sucursales&new_sucursal=1"
+           class="btn brown darken-1 waves-effect waves-light">
+          <i class="material-icons left">add_business</i>Nueva sucursal
+        </a>
+      {% endif %}
+    </div>
 
-            <div class="row" style="margin-bottom:0;">
-              <div class="input-field col s12 m6">
-                {{ form.nombre }}
-                <label for="{{ form.nombre.id_for_label }}" class="active">Nombre</label>
-                {% for err in form.nombre.errors %}<div class="red-text text-darken-2" style="font-size:12px;">{{ err }}</div>{% endfor %}
-              </div>
-
-              <div class="input-field col s12 m6">
-                {{ form.cuit }}
-                <label for="{{ form.cuit.id_for_label }}" class="active">CUIT</label>
-                {% for err in form.cuit.errors %}<div class="red-text text-darken-2" style="font-size:12px;">{{ err }}</div>{% endfor %}
-              </div>
-            </div>
-
-            <div class="row" style="margin-bottom:0;">
-              <div class="input-field col s12 m6">
-                {{ form.razon_social }}
-                <label for="{{ form.razon_social.id_for_label }}" class="active">Razón social</label>
-                {% for err in form.razon_social.errors %}<div class="red-text text-darken-2" style="font-size:12px;">{{ err }}</div>{% endfor %}
-              </div>
-
-              <div class="col s12 m6" style="margin-top:10px;">
-                <div class="grey-text text-darken-2" style="font-size:12px; margin-bottom:6px;">Condición fiscal</div>
-                {{ form.condicion_fiscal }}
-                {% for err in form.condicion_fiscal.errors %}<div class="red-text text-darken-2" style="font-size:12px; margin-top:4px;">{{ err }}</div>{% endfor %}
-                <div class="grey-text" style="font-size:12px; margin-top:6px;">
-                  Define cómo se mostrará el detalle fiscal en POS y ticket.
-                </div>
-              </div>
-            </div>
-
-            <div class="row" style="margin-bottom:0;">
-              <div class="input-field col s12">
-                {{ form.direccion }}
-                <label for="{{ form.direccion.id_for_label }}" class="active">Dirección</label>
-                {% for err in form.direccion.errors %}<div class="red-text text-darken-2" style="font-size:12px;">{{ err }}</div>{% endfor %}
-              </div>
-            </div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
-              <button type="submit" class="btn waves-effect waves-light">
-                <i class="material-icons left">save</i>Guardar
-              </button>
-              <a href="{% url 'admin_panel:empresa_datos' %}" class="btn-flat waves-effect">
-                Limpiar
-              </a>
-            </div>
-          </form>
+    <div class="card" style="margin:0 0 14px 0;">
+      <div class="card-content" style="padding:10px 16px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a class="btn {% if active_tab == 'empresa' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+             href="{% url 'admin_panel:empresa_datos' %}?tab=empresa">
+            <i class="material-icons left">storefront</i>Datos de empresa
+          </a>
+          <a class="btn {% if active_tab == 'sucursales' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect"
+             href="{% url 'admin_panel:empresa_datos' %}?tab=sucursales">
+            <i class="material-icons left">store</i>Sucursales
+          </a>
         </div>
       </div>
     </div>
 
-    <div class="col s12 l4">
-      <div class="card-panel">
-        <div style="font-weight:700; margin-bottom:6px;">Uso actual</div>
-        <div class="grey-text" style="font-size:13px;">
-          El campo <strong>Nombre</strong> se usa en el encabezado del ticket de venta.
-          También podés completar razón social, CUIT, condición fiscal y dirección para futuras impresiones/reportes.
+    <div id="tab-empresa" {% if active_tab != 'empresa' %}style="display:none;"{% endif %}>
+      <div class="row" style="margin-bottom:0;">
+        <div class="col s12 l8">
+          <div class="soft-panel">
+            <h6>Datos de empresa</h6>
+            <p class="empresa-subtle" style="margin-top:-6px; margin-bottom:10px;">
+              Estos datos se usan en tickets y configuraciones comerciales del sistema.
+            </p>
+
+            <form method="post" novalidate>
+              {% csrf_token %}
+              <input type="hidden" name="action" value="empresa_save">
+              <input type="hidden" name="tab" value="empresa">
+
+              <div class="row" style="margin-bottom:0;">
+                <div class="input-field col s12 m6">
+                  {{ form.nombre }}
+                  <label for="{{ form.nombre.id_for_label }}" class="active">Nombre</label>
+                  {% for err in form.nombre.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+                </div>
+
+                <div class="input-field col s12 m6">
+                  {{ form.cuit }}
+                  <label for="{{ form.cuit.id_for_label }}" class="active">CUIT</label>
+                  {% for err in form.cuit.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+                </div>
+              </div>
+
+              <div class="row" style="margin-bottom:0;">
+                <div class="input-field col s12 m6">
+                  {{ form.razon_social }}
+                  <label for="{{ form.razon_social.id_for_label }}" class="active">Razón social</label>
+                  {% for err in form.razon_social.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+                </div>
+
+                <div class="col s12 m6" style="margin-top:10px;">
+                  <div class="grey-text text-darken-2" style="font-size:12px; margin-bottom:6px;">Condición fiscal</div>
+                  {{ form.condicion_fiscal }}
+                  {% for err in form.condicion_fiscal.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+                  <div class="empresa-subtle" style="margin-top:6px;">
+                    Define cómo se mostrará el detalle fiscal en POS y ticket.
+                  </div>
+                </div>
+              </div>
+
+              <div class="row" style="margin-bottom:0;">
+                <div class="input-field col s12">
+                  {{ form.direccion }}
+                  <label for="{{ form.direccion.id_for_label }}" class="active">Dirección</label>
+                  {% for err in form.direccion.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+                </div>
+              </div>
+
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+                <button type="submit" class="btn waves-effect waves-light">
+                  <i class="material-icons left">save</i>Guardar
+                </button>
+                <a href="{% url 'admin_panel:empresa_datos' %}?tab=empresa" class="btn-flat waves-effect">
+                  Limpiar
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="col s12 l4">
+          <div class="card-panel">
+            <div style="font-weight:700; margin-bottom:6px;">Uso actual</div>
+            <div class="empresa-subtle">
+              El campo <strong>Nombre</strong> se usa en el encabezado del ticket de venta.
+              También podés completar razón social, CUIT, condición fiscal y dirección para futuras impresiones/reportes.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-sucursales" {% if active_tab != 'sucursales' %}style="display:none;"{% endif %}>
+      <div class="row" style="margin-bottom:0;">
+        <div class="col s12">
+          <div class="soft-panel">
+            <h6>Sucursales creadas</h6>
+            <div class="table-wrap">
+              <table class="striped compact-table">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Teléfono</th>
+                    <th style="width:120px;">Estado</th>
+                    <th style="width:170px;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for sucursal in sucursales %}
+                    <tr>
+                      <td style="font-weight:600;">{{ sucursal.nombre }}</td>
+                      <td>{{ sucursal.direccion|default:"-" }}</td>
+                      <td>{{ sucursal.telefono|default:"-" }}</td>
+                      <td>
+                        {% if sucursal.activa %}
+                          <span class="status-chip active">Activa</span>
+                        {% else %}
+                          <span class="status-chip inactive">Inactiva</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="actions-cell">
+                          <a href="{% url 'admin_panel:empresa_datos' %}?tab=sucursales&edit_sucursal={{ sucursal.id }}"
+                             class="icon-btn waves-effect"
+                             title="Editar sucursal">
+                            <i class="material-icons">edit</i>
+                          </a>
+                          <form method="post" class="inline-form">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="sucursal_toggle">
+                            <input type="hidden" name="tab" value="sucursales">
+                            <input type="hidden" name="sucursal_id" value="{{ sucursal.id }}">
+                            <button type="submit"
+                                    class="icon-btn waves-effect"
+                                    title="{% if sucursal.activa %}Desactivar{% else %}Activar{% endif %}">
+                              <i class="material-icons">{% if sucursal.activa %}toggle_off{% else %}toggle_on{% endif %}</i>
+                            </button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr>
+                      <td colspan="5" class="empresa-subtle">No hay sucursales creadas.</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+</div>
+
+<div id="modal-sucursal" class="modal modal-fixed-footer">
+  <div class="modal-content">
+    <h5 style="margin-top:0;">{% if edit_sucursal %}Editar sucursal{% else %}Crear sucursal{% endif %}</h5>
+    <p class="empresa-subtle" style="margin-top:-4px; margin-bottom:14px;">
+      {% if edit_sucursal %}
+        Actualizá los datos de <strong>{{ edit_sucursal.nombre }}</strong>.
+      {% else %}
+        Cargá los datos de la nueva sucursal para que quede disponible en todo el sistema.
+      {% endif %}
+    </p>
+    <form id="form-sucursal" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="sucursal_save">
+      <input type="hidden" name="tab" value="sucursales">
+      {% if edit_sucursal %}
+        <input type="hidden" name="sucursal_id" value="{{ edit_sucursal.id }}">
+      {% endif %}
+
+      <div class="input-field">
+        {{ sucursal_form.nombre }}
+        <label for="{{ sucursal_form.nombre.id_for_label }}" class="active">Nombre</label>
+        {% for err in sucursal_form.nombre.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div class="input-field">
+        {{ sucursal_form.direccion }}
+        <label for="{{ sucursal_form.direccion.id_for_label }}" class="active">Dirección</label>
+        {% for err in sucursal_form.direccion.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div class="input-field">
+        {{ sucursal_form.telefono }}
+        <label for="{{ sucursal_form.telefono.id_for_label }}" class="active">Teléfono</label>
+        {% for err in sucursal_form.telefono.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <p style="margin:10px 0 0;">
+        <label>
+          {{ sucursal_form.activa }}
+          <span>Sucursal activa</span>
+        </label>
+      </p>
+      {% for err in sucursal_form.activa.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+
+      {% if sucursal_form.non_field_errors %}
+        {% for err in sucursal_form.non_field_errors %}
+          <div class="card-panel red lighten-4 red-text text-darken-4" style="padding:10px 12px;">{{ err }}</div>
+        {% endfor %}
+      {% endif %}
+    </form>
+  </div>
+  <div class="modal-footer">
+    <a href="{% url 'admin_panel:empresa_datos' %}?tab=sucursales" class="btn-flat waves-effect">
+      {% if edit_sucursal %}Cancelar edición{% else %}Cancelar{% endif %}
+    </a>
+    <button type="submit" form="form-sucursal" class="btn brown darken-1 waves-effect waves-light">
+      <i class="material-icons left">{% if edit_sucursal %}save{% else %}add_business{% endif %}</i>
+      {% if edit_sucursal %}Guardar cambios{% else %}Crear sucursal{% endif %}
+    </button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    {% if open_sucursal_modal and active_tab == 'sucursales' %}
+    setTimeout(function () {
+      var modalEl = document.getElementById("modal-sucursal");
+      if (!modalEl || !window.M || !M.Modal) return;
+      var instance = M.Modal.getInstance(modalEl) || M.Modal.init(modalEl, {});
+      instance.open();
+    }, 0);
+    {% endif %}
+  });
+</script>
 {% endblock %}

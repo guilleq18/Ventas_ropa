@@ -26,7 +26,14 @@ from admin_panel.services import (
     get_str_setting,
     set_str_setting,
 )
-from admin_panel.forms import AdminPanelUserForm, RoleForm, AdminPanelCategoriaForm, EmpresaDatosForm
+from admin_panel.forms import (
+    AdminPanelUserForm,
+    AdminPanelUserPasswordForm,
+    RoleForm,
+    AdminPanelCategoriaForm,
+    EmpresaDatosForm,
+    SucursalCreateForm,
+)
 from catalogo.models import Categoria
 from core.fiscal import get_empresa_condicion_fiscal, set_empresa_condicion_fiscal
 
@@ -88,6 +95,14 @@ def _apply_local_date_range(qs, field_name: str, date_from=None, date_to=None):
         end_exclusive = _localize_if_needed(datetime.combine(date_to + timedelta(days=1), time.min))
         filters[f"{field_name}__lt"] = end_exclusive
     return qs.filter(**filters) if filters else qs
+
+
+def _to_local_datetime(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if timezone.is_aware(dt):
+        return timezone.localtime(dt, timezone.get_current_timezone())
+    return dt
 
 
 def _shift_months(d, months: int):
@@ -184,15 +199,31 @@ def balances(request):
     ticket_prom = (total / cantidad) if cantidad else 0
 
     # Serie por día
-    por_dia = (
+    por_dia = list(
         qs.annotate(dia=TruncDate("fecha"))
           .values("dia")
           .annotate(total=Sum("total"), cantidad=Count("id"))
           .order_by("dia")
     )
-    labels_dia = [x["dia"].strftime("%d/%m/%Y") for x in por_dia]
-    data_total_dia = [float(x["total"] or 0) for x in por_dia]
-    data_cantidad_dia = [int(x["cantidad"] or 0) for x in por_dia]
+    if any(x.get("dia") is None for x in por_dia):
+        # Fallback para motores sin tablas TZ (CONVERT_TZ -> NULL).
+        totales_por_dia = {}
+        cantidades_por_dia = {}
+        for fecha, total_venta in qs.values_list("fecha", "total"):
+            fecha_local = _to_local_datetime(fecha)
+            if fecha_local is None:
+                continue
+            dia = fecha_local.date()
+            totales_por_dia[dia] = totales_por_dia.get(dia, Decimal("0.00")) + Decimal(total_venta or 0)
+            cantidades_por_dia[dia] = cantidades_por_dia.get(dia, 0) + 1
+        dias_ordenados = sorted(totales_por_dia.keys())
+        labels_dia = [d.strftime("%d/%m/%Y") for d in dias_ordenados]
+        data_total_dia = [float(totales_por_dia[d]) for d in dias_ordenados]
+        data_cantidad_dia = [int(cantidades_por_dia[d]) for d in dias_ordenados]
+    else:
+        labels_dia = [x["dia"].strftime("%d/%m/%Y") for x in por_dia if x.get("dia")]
+        data_total_dia = [float(x["total"] or 0) for x in por_dia if x.get("dia")]
+        data_cantidad_dia = [int(x["cantidad"] or 0) for x in por_dia if x.get("dia")]
 
     # Por medio de pago (real según VentaPago del POS; incluye recargos de crédito)
     pago_total_field = DecimalField(max_digits=14, decimal_places=2)
@@ -250,14 +281,26 @@ def balances(request):
     data_sucursal_cantidad = [int(x["cantidad"] or 0) for x in por_sucursal]
 
     # Ventas por hora del día (agregado en el rango)
-    por_hora = (
+    por_hora = list(
         qs.annotate(hora=ExtractHour("fecha"))
           .values("hora")
           .annotate(total=Sum("total"), cantidad=Count("id"))
           .order_by("hora")
     )
-    por_hora_map = {int(x["hora"]): float(x["total"] or 0) for x in por_hora if x["hora"] is not None}
-    por_hora_cant_map = {int(x["hora"]): int(x["cantidad"] or 0) for x in por_hora if x["hora"] is not None}
+    if any(x.get("hora") is None for x in por_hora):
+        totales_por_hora = {}
+        por_hora_cant_map = {}
+        for fecha, total_venta in qs.values_list("fecha", "total"):
+            fecha_local = _to_local_datetime(fecha)
+            if fecha_local is None:
+                continue
+            hora = int(fecha_local.hour)
+            totales_por_hora[hora] = totales_por_hora.get(hora, Decimal("0.00")) + Decimal(total_venta or 0)
+            por_hora_cant_map[hora] = por_hora_cant_map.get(hora, 0) + 1
+        por_hora_map = {h: float(v) for h, v in totales_por_hora.items()}
+    else:
+        por_hora_map = {int(x["hora"]): float(x["total"] or 0) for x in por_hora if x["hora"] is not None}
+        por_hora_cant_map = {int(x["hora"]): int(x["cantidad"] or 0) for x in por_hora if x["hora"] is not None}
     labels_hora = [f"{h:02d}:00" for h in range(24)]
     data_hora = [por_hora_map.get(h, 0.0) for h in range(24)]
     data_hora_cantidad = [por_hora_cant_map.get(h, 0) for h in range(24)]
@@ -492,26 +535,99 @@ def settings_view(request):
 @login_required
 @permission_required("core.change_appsetting", raise_exception=True)
 def empresa_datos(request):
+    active_tab = (
+        request.POST.get("tab")
+        if request.method == "POST"
+        else request.GET.get("tab")
+    )
+    active_tab = (active_tab or "empresa").strip().lower()
+    if active_tab not in {"empresa", "sucursales"}:
+        active_tab = "empresa"
+
+    initial = {}
+    for field_name, (key, default, description) in EMPRESA_SETTINGS_MAP.items():
+        initial[field_name] = get_str_setting(key, default, description)
+    initial["condicion_fiscal"] = get_empresa_condicion_fiscal()
+
+    form = EmpresaDatosForm(initial=initial)
+    sucursal_form = SucursalCreateForm(prefix="sucursal")
+    edit_sucursal = None
+    open_sucursal_modal = (request.GET.get("new_sucursal") == "1" and active_tab == "sucursales")
+
     if request.method == "POST":
-        form = EmpresaDatosForm(request.POST)
-        if form.is_valid():
-            for field_name, (key, default, description) in EMPRESA_SETTINGS_MAP.items():
-                set_str_setting(key, form.cleaned_data.get(field_name, ""), default, description)
-            set_empresa_condicion_fiscal(form.cleaned_data.get("condicion_fiscal"))
+        action = (request.POST.get("action") or "empresa_save").strip()
 
-            messages.success(request, "Datos de empresa actualizados.")
+        if action == "empresa_save":
+            active_tab = "empresa"
+            form = EmpresaDatosForm(request.POST)
+            if form.is_valid():
+                for field_name, (key, default, description) in EMPRESA_SETTINGS_MAP.items():
+                    set_str_setting(key, form.cleaned_data.get(field_name, ""), default, description)
+                set_empresa_condicion_fiscal(form.cleaned_data.get("condicion_fiscal"))
+
+                messages.success(request, "Datos de empresa actualizados.")
+                return redirect(f"{reverse('admin_panel:empresa_datos')}?tab=empresa")
+
+            messages.error(request, "Revisá los datos del formulario.")
+
+        elif action == "sucursal_save":
+            active_tab = "sucursales"
+            sucursal_id = request.POST.get("sucursal_id")
+            if sucursal_id:
+                edit_sucursal = get_object_or_404(Sucursal, id=sucursal_id)
+            sucursal_form = SucursalCreateForm(request.POST, instance=edit_sucursal, prefix="sucursal")
+            if sucursal_form.is_valid():
+                sucursal = sucursal_form.save()
+                msg = (
+                    f"Sucursal creada: {sucursal.nombre}."
+                    if edit_sucursal is None
+                    else f"Sucursal actualizada: {sucursal.nombre}."
+                )
+                messages.success(request, msg)
+                return redirect(f"{reverse('admin_panel:empresa_datos')}?tab=sucursales")
+
+            messages.error(request, "No se pudo guardar la sucursal. Revisá los datos.")
+            open_sucursal_modal = True
+
+        elif action == "sucursal_toggle":
+            active_tab = "sucursales"
+            sucursal = get_object_or_404(Sucursal, id=request.POST.get("sucursal_id"))
+            sucursal.activa = not sucursal.activa
+            sucursal.save(update_fields=["activa"])
+
+            estado = "activada" if sucursal.activa else "desactivada"
+            messages.success(request, f"Sucursal {sucursal.nombre} {estado}.")
+
+            if not sucursal.activa:
+                usuarios_asignados = sucursal.usuarios_asignados.count()
+                if usuarios_asignados > 0:
+                    sufijo = "s" if usuarios_asignados != 1 else ""
+                    messages.warning(
+                        request,
+                        f"La sucursal quedó inactiva y {usuarios_asignados} usuario{sufijo} asignado{sufijo} no podrá vender en Caja.",
+                    )
+
+            return redirect(f"{reverse('admin_panel:empresa_datos')}?tab=sucursales")
+
+        else:
+            messages.error(request, "Acción no reconocida.")
             return redirect("admin_panel:empresa_datos")
+    elif active_tab == "sucursales":
+        edit_sucursal_id = request.GET.get("edit_sucursal")
+        if edit_sucursal_id:
+            edit_sucursal = get_object_or_404(Sucursal, id=edit_sucursal_id)
+            sucursal_form = SucursalCreateForm(instance=edit_sucursal, prefix="sucursal")
+            open_sucursal_modal = True
 
-        messages.error(request, "Revisá los datos del formulario.")
-    else:
-        initial = {}
-        for field_name, (key, default, description) in EMPRESA_SETTINGS_MAP.items():
-            initial[field_name] = get_str_setting(key, default, description)
-        initial["condicion_fiscal"] = get_empresa_condicion_fiscal()
-        form = EmpresaDatosForm(initial=initial)
+    sucursales = Sucursal.objects.all().order_by("-activa", "nombre", "id")
 
     return render(request, "admin_panel/empresa_datos.html", {
         "form": form,
+        "sucursales": sucursales,
+        "active_tab": active_tab,
+        "sucursal_form": sucursal_form,
+        "edit_sucursal": edit_sucursal,
+        "open_sucursal_modal": open_sucursal_modal,
     })
 
 
@@ -715,10 +831,13 @@ def usuarios_lista(request):
 
     edit_user = None
     edit_role = None
+    password_user = None
     user_modal_form = AdminPanelUserForm(prefix="user_modal")
+    password_form = AdminPanelUserPasswordForm(prefix="pwd")
     role_form = RoleForm(prefix="role")
     open_user_modal = (request.GET.get("new_user") == "1")
     open_role_modal = (request.GET.get("new_role") == "1")
+    open_password_modal = False
 
     if request.method == "POST":
         action = (request.POST.get("action") or "").strip()
@@ -738,6 +857,19 @@ def usuarios_lista(request):
                 return _admin_panel_redirect_with_tab("usuarios")
             active_tab = "usuarios"
             open_user_modal = True
+
+        elif action == "user_password_update":
+            active_tab = "usuarios"
+            password_user = get_object_or_404(User, id=request.POST.get("user_id"))
+            password_form = AdminPanelUserPasswordForm(request.POST, prefix="pwd")
+            if password_form.is_valid():
+                password_user.set_password(password_form.cleaned_data["password1"])
+                password_user.save(update_fields=["password"])
+                messages.success(request, f"Contraseña actualizada para {password_user.username}.")
+                return _admin_panel_redirect_with_tab("usuarios")
+
+            messages.error(request, "No se pudo actualizar la contraseña. Revisá los datos.")
+            open_password_modal = True
 
         elif action == "user_toggle_active":
             user = get_object_or_404(User, id=request.POST.get("user_id"))
@@ -791,6 +923,11 @@ def usuarios_lista(request):
             user_modal_form = AdminPanelUserForm(instance=edit_user, prefix="user_modal")
             open_user_modal = True
 
+        change_password_user_id = request.GET.get("change_password_user")
+        if change_password_user_id:
+            password_user = get_object_or_404(User, id=change_password_user_id)
+            open_password_modal = True
+
         edit_role_id = request.GET.get("edit_role")
         if edit_role_id:
             edit_role = get_object_or_404(Group, id=edit_role_id)
@@ -819,10 +956,13 @@ def usuarios_lista(request):
             "usuarios": usuarios,
             "roles": roles,
             "user_modal_form": user_modal_form,
+            "password_form": password_form,
             "role_form": role_form,
             "edit_user": edit_user,
+            "password_user": password_user,
             "edit_role": edit_role,
             "open_user_modal": open_user_modal,
+            "open_password_modal": open_password_modal,
             "open_role_modal": open_role_modal,
         },
     )

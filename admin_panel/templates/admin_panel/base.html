@@ -41,6 +41,11 @@
       border-radius: 12px;
       box-shadow: none;
     }
+    .admin-flash {
+      transition: opacity .26s ease, transform .26s ease, max-height .26s ease, margin .26s ease, padding .26s ease;
+      overflow: hidden;
+      transform-origin: top;
+    }
     .grey-text{ color: var(--ui-text-soft) !important; }
     .striped > tbody > tr:nth-child(odd){ background-color: rgba(255,255,255,.32); }
     .collection{
@@ -359,13 +364,13 @@
     {% if messages %}
   {% for message in messages %}
     {% if message.tags == "success" %}
-      <div class="card-panel green lighten-4 green-text text-darken-4">{{ message }}</div>
+      <div class="card-panel admin-flash green lighten-4 green-text text-darken-4">{{ message }}</div>
     {% elif message.tags == "error" %}
-      <div class="card-panel red lighten-4 red-text text-darken-4">{{ message }}</div>
+      <div class="card-panel admin-flash red lighten-4 red-text text-darken-4">{{ message }}</div>
     {% elif message.tags == "warning" %}
-      <div class="card-panel yellow lighten-4 brown-text text-darken-4">{{ message }}</div>
+      <div class="card-panel admin-flash yellow lighten-4 brown-text text-darken-4">{{ message }}</div>
     {% else %}
-      <div class="card-panel blue lighten-4 blue-text text-darken-4">{{ message }}</div>
+      <div class="card-panel admin-flash blue lighten-4 blue-text text-darken-4">{{ message }}</div>
     {% endif %}
   {% endfor %}
 {% endif %}
@@ -401,6 +406,22 @@
       }
       tickNavClock();
       setInterval(tickNavClock, 10000);
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const flashes = document.querySelectorAll('.admin-flash');
+      flashes.forEach(function(el) {
+        setTimeout(function() {
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(-4px)';
+          el.style.maxHeight = '0';
+          el.style.marginTop = '0';
+          el.style.marginBottom = '0';
+          el.style.paddingTop = '0';
+          el.style.paddingBottom = '0';
+          setTimeout(function() { el.remove(); }, 280);
+        }, 3000);
+      });
     });
 
 

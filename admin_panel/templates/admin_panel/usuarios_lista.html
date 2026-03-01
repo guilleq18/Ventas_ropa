@@ -209,7 +209,7 @@
                     <th>Sucursal</th>
                     <th>Roles</th>
                     <th>Estado</th>
-                    <th style="width:160px;">Acciones</th>
+                    <th style="width:220px;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -248,6 +248,11 @@
                            class="btn-flat waves-effect"
                            title="Editar usuario">
                           <i class="material-icons">edit</i>
+                        </a>
+                        <a href="{% url 'admin_panel:usuarios_lista' %}?tab=usuarios&change_password_user={{ u.id }}"
+                           class="btn-flat waves-effect"
+                           title="Cambiar contraseña">
+                          <i class="material-icons">vpn_key</i>
                         </a>
                         <form method="post" class="inline-form">
                           {% csrf_token %}
@@ -384,6 +389,7 @@
         {% for err in user_modal_form.email.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
       </div>
 
+      {% if not edit_user %}
       <div class="row" style="margin-bottom:0;">
         <div class="col s12 m6">
           <div class="input-field">
@@ -404,6 +410,7 @@
           </div>
         </div>
       </div>
+      {% endif %}
 
       <div style="margin: 6px 0 12px;">
         <label style="font-weight:600; color:#5d4037;">Sucursal</label>
@@ -459,6 +466,50 @@
     <button type="submit" form="form-crear-usuario" class="btn brown darken-1 waves-effect waves-light">
       <i class="material-icons left">{% if edit_user %}save{% else %}person_add{% endif %}</i>
       {% if edit_user %}Guardar cambios{% else %}Crear usuario{% endif %}
+    </button>
+  </div>
+</div>
+
+<div id="modal-cambiar-password" class="modal modal-fixed-footer">
+  <div class="modal-content">
+    <h5 style="margin-top:0;">Cambiar contraseña</h5>
+    <p class="subtle" style="margin-top:-4px; margin-bottom:14px;">
+      {% if password_user %}
+        Definí una nueva contraseña para <strong>{{ password_user.username }}</strong>.
+      {% endif %}
+    </p>
+
+    <form id="form-cambiar-password" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="user_password_update">
+      <input type="hidden" name="tab" value="usuarios">
+      {% if password_user %}
+        <input type="hidden" name="user_id" value="{{ password_user.id }}">
+      {% endif %}
+
+      <div class="input-field">
+        {{ password_form.password1 }}
+        <label for="{{ password_form.password1.id_for_label }}" class="active">Nueva contraseña</label>
+        {% for err in password_form.password1.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      <div class="input-field">
+        {{ password_form.password2 }}
+        <label for="{{ password_form.password2.id_for_label }}" class="active">Repetir nueva contraseña</label>
+        {% for err in password_form.password2.errors %}<div class="field-errors">{{ err }}</div>{% endfor %}
+      </div>
+
+      {% if password_form.non_field_errors %}
+        {% for err in password_form.non_field_errors %}
+          <div class="card-panel red lighten-4 red-text text-darken-4" style="padding:10px 12px;">{{ err }}</div>
+        {% endfor %}
+      {% endif %}
+    </form>
+  </div>
+  <div class="modal-footer">
+    <a href="{% url 'admin_panel:usuarios_lista' %}?tab=usuarios" class="btn-flat waves-effect">Cancelar</a>
+    <button type="submit" form="form-cambiar-password" class="btn brown darken-1 waves-effect waves-light">
+      <i class="material-icons left">vpn_key</i>Actualizar contraseña
     </button>
   </div>
 </div>
@@ -565,6 +616,14 @@
       const roleModalEl = document.getElementById("modal-crear-rol");
       if (roleModalEl && window.M && M.Modal) {
         const instance = M.Modal.getInstance(roleModalEl) || M.Modal.init(roleModalEl, {});
+        instance.open();
+      }
+      {% endif %}
+
+      {% if open_password_modal and active_tab == 'usuarios' %}
+      const pwdModalEl = document.getElementById("modal-cambiar-password");
+      if (pwdModalEl && window.M && M.Modal) {
+        const instance = M.Modal.getInstance(pwdModalEl) || M.Modal.init(pwdModalEl, {});
         instance.open();
       }
       {% endif %}

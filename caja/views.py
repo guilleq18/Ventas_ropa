@@ -713,6 +713,10 @@ def _validar_caja_usuario(request, sucursal=None, for_update: bool = False):
     """
     if sucursal is None:
         sucursal = _get_pos_sucursal(request)
+    if not sucursal.activa:
+        raise ValidationError(
+            f"La sucursal {sucursal.nombre} está inactiva. No se puede vender."
+        )
 
     sesion = _get_caja_sesion_activa(sucursal, for_update=for_update)
     if not sesion:

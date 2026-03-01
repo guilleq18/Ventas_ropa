@@ -40,6 +40,10 @@ def _snapshot_empresa_y_fiscal_en_venta(venta: Venta, items: list) -> None:
 def confirmar_venta(venta: Venta):
     if venta.estado != Venta.Estado.BORRADOR:
         raise ValidationError("Solo se puede confirmar una venta en borrador.")
+    if not venta.sucursal.activa:
+        raise ValidationError(
+            f"La sucursal {venta.sucursal.nombre} está inactiva. No se puede confirmar la venta."
+        )
 
     items = list(venta.items.select_related("variante").all())
 
