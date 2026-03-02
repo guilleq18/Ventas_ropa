@@ -51,5 +51,19 @@ jobs:
             sudo systemctl restart tienda-gunicorn
             sudo systemctl reload nginx
 
-            curl -fsSI http://127.0.0.1/login/ >/dev/null
-            echo "Deploy OK"
+            # Espera activa para evitar falsos 502 durante el arranque.
+            ATTEMPTS=30
+            SLEEP_SECONDS=2
+            for i in $(seq 1 "$ATTEMPTS"); do
+              if curl -fsSI http://127.0.0.1/login/ >/dev/null; then
+                echo "Deploy OK"
+                exit 0
+              fi
+              echo "Healthcheck intento $i/$ATTEMPTS..."
+              sleep "$SLEEP_SECONDS"
+            done
+
+            echo "Healthcheck falló luego de $ATTEMPTS intentos."
+            sudo systemctl status tienda-gunicorn --no-pager || true
+            sudo systemctl status nginx --no-pager || true
+            exit 1
