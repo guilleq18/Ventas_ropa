@@ -1,0 +1,29 @@
+escenario,proveedor,clientes,vms,ocpu_por_vm,ram_gb_por_vm,block_gb_por_vm,costo_vm_usd_mes,compute_total_usd_mes,block_total_usd_mes,free_tier_aplica,total_estimado_usd_mes,usd_por_cliente,notas
+aislado,Oracle PAYG,3,3,1,2,50,,29.20,6.45,si,0.00,0.00,1 VM por empresa y descuento Always Free aplicado por cuenta
+aislado,Oracle PAYG,10,10,1,2,50,,97.09,21.50,si,56.70,5.67,ajustar si cambian tarifas Oracle
+aislado,Oracle PAYG,20,20,1,2,50,,194.18,43.00,si,168.70,8.44,ajustar si cambian tarifas Oracle
+aislado,Oracle PAYG,50,50,1,2,50,,485.45,107.50,si,504.70,10.09,estimacion aproximada
+aislado,AWS Lightsail 1GB,3,3,,,,5.00,,,,15.00,5.00,precio por VM
+aislado,AWS Lightsail 1GB,10,10,,,,5.00,,,,50.00,5.00,precio por VM
+aislado,AWS Lightsail 1GB,20,20,,,,5.00,,,,100.00,5.00,precio por VM
+aislado,AWS Lightsail 1GB,50,50,,,,5.00,,,,250.00,5.00,precio por VM
+aislado,Linode 1GB,3,3,,,,5.00,,,,15.00,5.00,precio por VM
+aislado,Linode 1GB,10,10,,,,5.00,,,,50.00,5.00,precio por VM
+aislado,Linode 1GB,20,20,,,,5.00,,,,100.00,5.00,precio por VM
+aislado,Linode 1GB,50,50,,,,5.00,,,,250.00,5.00,precio por VM
+aislado,DigitalOcean 1GB,3,3,,,,6.00,,,,18.00,6.00,precio por VM
+aislado,DigitalOcean 1GB,10,10,,,,6.00,,,,60.00,6.00,precio por VM
+aislado,DigitalOcean 1GB,20,20,,,,6.00,,,,120.00,6.00,precio por VM
+aislado,DigitalOcean 1GB,50,50,,,,6.00,,,,300.00,6.00,precio por VM
+aislado,Hetzner CAX11,3,3,,,,5.49,,,,16.47,5.49,precio por VM
+aislado,Hetzner CAX11,10,10,,,,5.49,,,,54.90,5.49,precio por VM
+aislado,Hetzner CAX11,20,20,,,,5.49,,,,109.80,5.49,precio por VM
+aislado,Hetzner CAX11,50,50,,,,5.49,,,,274.50,5.49,precio por VM
+aislado,Contabo VPS 10 (US ejemplo),3,3,,,,5.45,,,,16.35,5.45,precio por VM con location fee ejemplo
+aislado,Contabo VPS 10 (US ejemplo),10,10,,,,5.45,,,,54.50,5.45,precio por VM con location fee ejemplo
+aislado,Contabo VPS 10 (US ejemplo),20,20,,,,5.45,,,,109.00,5.45,precio por VM con location fee ejemplo
+aislado,Contabo VPS 10 (US ejemplo),50,50,,,,5.45,,,,272.50,5.45,precio por VM con location fee ejemplo
+multitenant,Oracle PAYG,3,1,2,8,100,,17.52,4.30,si,0.00,0.00,1 sola VM para varias empresas
+multitenant,Oracle PAYG,10,1,4,16,250,,35.04,10.75,si,2.15,0.22,1 sola VM para varias empresas
+multitenant,Oracle PAYG,20,1,8,32,500,,70.08,21.50,si,50.91,2.55,1 sola VM para varias empresas
+multitenant,Oracle PAYG,50,1,16,64,1000,,140.16,43.00,si,152.43,3.05,1 sola VM para varias empresas

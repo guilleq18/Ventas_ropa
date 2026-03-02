@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Sum, Count, Avg, F, Q
 from django.shortcuts import render
 from django.utils import timezone
@@ -51,6 +52,9 @@ FIELDS = {
     "prod_activo": "activo",        # opcional bool
 }
 
+SENSITIVE_DASHBOARD_PERMISSION = "admin_panel.view_usuarioperfil"
+CAJA_POS_PERMISSION = "ventas.usar_caja_pos"
+
 
 def _field_exists(model, field_name: str) -> bool:
     if not model or not field_name:
@@ -62,9 +66,41 @@ def _field_exists(model, field_name: str) -> bool:
         return False
 
 
+def _can_view_sensitive_dashboard(user) -> bool:
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_superuser:
+        return True
+    return user.has_perm(SENSITIVE_DASHBOARD_PERMISSION)
+
+
+def _can_access_caja(user) -> bool:
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if user.is_superuser:
+        return True
+    return user.has_perm(CAJA_POS_PERMISSION)
+
+
+def _get_user_sucursal(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+    try:
+        profile = user.panel_profile
+    except ObjectDoesNotExist:
+        return None
+    if profile and profile.sucursal_id:
+        return profile.sucursal
+    return None
+
+
 @login_required
 def dashboard(request):
     hoy = timezone.localdate()
+    can_view_sensitive_dashboard = _can_view_sensitive_dashboard(request.user)
+    can_access_caja = _can_access_caja(request.user)
+    can_access_admin_panel = can_view_sensitive_dashboard
+    user_sucursal = _get_user_sucursal(request.user)
 
     # Defaults
     ventas_hoy = 0
@@ -84,6 +120,22 @@ def dashboard(request):
     # =========================
     if Venta:
         qs = Venta.objects.all()
+        estado_ok = FIELDS["venta_estado_ok"]
+
+        # Compatibilidad con modelos reales del proyecto (CONFIRMADA en ventas.Venta).
+        try:
+            estado_ok = getattr(Venta.Estado, "CONFIRMADA", estado_ok)
+        except Exception:
+            pass
+
+        # Vendedor básico: limitar alcance para evitar exposición global.
+        if not can_view_sensitive_dashboard:
+            if user_sucursal and _field_exists(Venta, "sucursal"):
+                qs = qs.filter(sucursal=user_sucursal)
+            elif _field_exists(Venta, "cajero"):
+                qs = qs.filter(cajero=request.user)
+            else:
+                qs = qs.none()
 
         # Filtrar por hoy (si el campo es DateTime, usamos __date; si es Date, usamos exacto)
         venta_fecha = FIELDS["venta_fecha"]
@@ -102,22 +154,29 @@ def dashboard(request):
 
         # Filtrar estado OK si existe
         if _field_exists(Venta, FIELDS["venta_estado"]):
-            qs_hoy = qs_hoy.filter(**{FIELDS["venta_estado"]: FIELDS["venta_estado_ok"]})
+            qs_hoy = qs_hoy.filter(**{FIELDS["venta_estado"]: estado_ok})
 
         # KPIs
         ventas_hoy = qs_hoy.aggregate(c=Count("id"))["c"] or 0
 
         venta_total = FIELDS["venta_total"]
-        if _field_exists(Venta, venta_total):
+        if _field_exists(Venta, venta_total) and can_view_sensitive_dashboard:
             ingresos_hoy = qs_hoy.aggregate(s=Sum(venta_total))["s"] or 0
             ticket_promedio = (ingresos_hoy / ventas_hoy) if ventas_hoy else 0
 
-        # Últimas ventas (máximo 10)
+        # Actividad reciente: mostrar siempre lo de la sucursal asignada.
+        qs_actividad = qs
+        if _field_exists(Venta, "sucursal") and user_sucursal:
+            qs_actividad = qs_actividad.filter(sucursal=user_sucursal)
+        elif not can_view_sensitive_dashboard:
+            qs_actividad = qs_actividad.none()
+
+        # Últimas ventas
         # Intentamos ordenar por fecha si existe
         if _field_exists(Venta, venta_fecha):
-            qs_last = qs.order_by(f"-{venta_fecha}")[:10]
+            qs_last = qs_actividad.order_by(f"-{venta_fecha}")[:10 if can_view_sensitive_dashboard else 6]
         else:
-            qs_last = qs.order_by("-id")[:10]
+            qs_last = qs_actividad.order_by("-id")[:10 if can_view_sensitive_dashboard else 6]
 
         # Armado “safe” (si no existen campos, mostramos lo que se pueda)
         for v in qs_last:
@@ -137,14 +196,19 @@ def dashboard(request):
             # cliente: si tenés FK cliente o nombre, ajustalo
             cliente_txt = getattr(v, "cliente", None)
             if cliente_txt is None:
-                cliente_txt = "Consumidor Final"
+                cliente_txt = "Consumidor Final" if can_view_sensitive_dashboard else "-"
             else:
-                cliente_txt = str(cliente_txt)
+                cliente_txt = str(cliente_txt) if can_view_sensitive_dashboard else "-"
 
-            total_val = getattr(v, venta_total, 0) if _field_exists(Venta, venta_total) else 0
+            total_val = (
+                getattr(v, venta_total, 0)
+                if (_field_exists(Venta, venta_total) and can_view_sensitive_dashboard)
+                else 0
+            )
             estado_val = getattr(v, FIELDS["venta_estado"], "OK") if _field_exists(Venta, FIELDS["venta_estado"]) else "OK"
 
             ultimas_ventas.append({
+                "id": v.id,
                 "fecha": fecha_txt,
                 "nro": nro_txt,
                 "cliente": cliente_txt,
@@ -155,7 +219,7 @@ def dashboard(request):
     # =========================
     # STOCK BAJO
     # =========================
-    if Producto:
+    if Producto and can_view_sensitive_dashboard:
         prod_stock = FIELDS["prod_stock"]
         prod_min = FIELDS["prod_minimo"]
 
@@ -174,7 +238,7 @@ def dashboard(request):
     # =========================
     # CAJA
     # =========================
-    if MovimientoCaja:
+    if MovimientoCaja and can_view_sensitive_dashboard:
         caja_fecha = FIELDS["caja_fecha"]
         caja_tipo = FIELDS["caja_tipo"]
         caja_monto = FIELDS["caja_monto"]
@@ -203,8 +267,20 @@ def dashboard(request):
     # =========================
     # Contexto final
     # =========================
+    if can_view_sensitive_dashboard:
+        dashboard_scope_label = "Vista gerencial"
+    elif user_sucursal:
+        dashboard_scope_label = f"Vista operativa ({user_sucursal.nombre})"
+    else:
+        dashboard_scope_label = "Vista operativa"
+
     ctx = {
         "hoy": hoy,
+        "can_view_sensitive_dashboard": can_view_sensitive_dashboard,
+        "can_access_caja": can_access_caja,
+        "can_access_admin_panel": can_access_admin_panel,
+        "dashboard_scope_label": dashboard_scope_label,
+        "user_sucursal": user_sucursal,
         "kpis": {
             "ventas_hoy": ventas_hoy,
             "ingresos_hoy": ingresos_hoy,

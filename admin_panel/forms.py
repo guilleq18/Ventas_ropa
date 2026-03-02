@@ -4,7 +4,6 @@ from django.contrib.auth.models import Group, Permission
 
 from core.models import Sucursal
 from core.fiscal import CondicionFiscalEmpresa, normalizar_condicion_fiscal_empresa
-from catalogo.models import Categoria
 from .models import UsuarioPerfil
 
 
@@ -148,21 +147,6 @@ class RoleForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["name"].label = "Nombre del rol"
         self.fields["name"].widget.attrs.setdefault("class", "validate")
-
-
-class AdminPanelCategoriaForm(forms.ModelForm):
-    class Meta:
-        model = Categoria
-        fields = ["nombre", "activa"]
-        widgets = {
-            "nombre": forms.TextInput(attrs={"autocomplete": "off", "class": "validate"}),
-            "activa": forms.CheckboxInput(),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["nombre"].label = "Nombre"
-        self.fields["activa"].label = "Activa"
 
 
 class EmpresaDatosForm(forms.Form):

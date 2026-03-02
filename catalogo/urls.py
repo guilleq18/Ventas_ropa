@@ -23,10 +23,4 @@ urlpatterns = [
     path("stock/set/", views.stock_set, name="stock_set"),
     path("variante/<int:variante_id>/stock/detalle/", views.variante_stock_detalle, name="variante_stock_detalle"),
     path("variante/stock/set/", views.variante_stock_set, name="variante_stock_set"),
-    path("variante/<int:variante_id>/stock/detalle/", views.variante_stock_detalle, name="variante_stock_detalle"),
-    path("variante/stock/set/", views.variante_stock_set, name="variante_stock_set"),
-
-
-
-
 ]

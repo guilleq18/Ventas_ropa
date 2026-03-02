@@ -254,6 +254,11 @@
             </a>
           </li>
           <li>
+            <a class="btn-flat waves-effect" href="{% url 'catalogo:productos' %}">
+              <i class="material-icons">inventory_2</i>Catalogo
+            </a>
+          </li>
+          <li>
             <a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}">
               <i class="material-icons">admin_panel_settings</i>Admin Panel
             </a>
@@ -316,7 +321,7 @@
 
     {# Catálogo (wrapper o link directo) #}
     <li>
-      <a href="{% url 'admin_panel:catalogo_home' %}">
+      <a href="{% url 'catalogo:productos' %}">
         <i class="material-icons">inventory_2</i>Catálogo
       </a>
     </li>

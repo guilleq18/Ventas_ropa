@@ -6,8 +6,8 @@ import json
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
-from django.contrib.auth.decorators import login_required, permission_required
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
 from django.db import transaction
 from django.db.models import Q, Count, Sum
 from django.http import HttpResponse
@@ -33,6 +33,25 @@ from cuentas_corrientes.models import Cliente, CuentaCorriente, MovimientoCuenta
 from admin_panel.services import permitir_vender_sin_stock, permitir_cambiar_precio_venta
 from .models import CajaSesion
 from .utils import handle_pos_errors
+
+CAJA_POS_PERMISSION = "ventas.usar_caja_pos"
+
+
+def _usuario_puede_usar_caja(user) -> bool:
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    return user.has_perm(CAJA_POS_PERMISSION)
+
+
+def _require_pos_permission(user):
+    if _usuario_puede_usar_caja(user):
+        return
+    raise ValidationError(
+        "No tenés permisos para operar Caja POS. "
+        "Solicitá el permiso ventas | usar_caja_pos desde Admin Panel."
+    )
 
 
 
@@ -657,6 +676,7 @@ def pagos_cuotas(request, idx: int):
 
 def _get_pos_sucursal(request):
     user = getattr(request, "user", None)
+    _require_pos_permission(user)
 
     if user is not None and getattr(user, "is_authenticated", False):
         try:
@@ -1640,6 +1660,11 @@ def confirmar(request):
 
 @login_required
 def ticket(request, venta_id: int):
+    if not _usuario_puede_usar_caja(request.user):
+        raise PermissionDenied(
+            "No tenés permisos para acceder a tickets de Caja."
+        )
+
     venta = get_object_or_404(
         Venta.objects
         .select_related("sucursal", "cajero")

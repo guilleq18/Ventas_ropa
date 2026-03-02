@@ -15,7 +15,6 @@ from django import forms
 from decimal import Decimal
 from django.db.models.functions import Coalesce
 from django.db import transaction, IntegrityError
-from django.db.models.deletion import ProtectedError
 import calendar
 from cuentas_corrientes.models import Cliente, CuentaCorriente
 from django.contrib import messages
@@ -30,11 +29,9 @@ from admin_panel.forms import (
     AdminPanelUserForm,
     AdminPanelUserPasswordForm,
     RoleForm,
-    AdminPanelCategoriaForm,
     EmpresaDatosForm,
     SucursalCreateForm,
 )
-from catalogo.models import Categoria
 from core.fiscal import get_empresa_condicion_fiscal, set_empresa_condicion_fiscal
 
 
@@ -731,85 +728,23 @@ def dashboard(request):
 
 @login_required
 def catalogo_home(request):
-    active_tab = (request.GET.get("tab") or "productos").strip().lower()
-    if active_tab not in {"productos", "categorias"}:
-        active_tab = "productos"
+    tab = (request.GET.get("tab") or "").strip().lower()
+    query_parts = []
+    if tab in {"productos", "categorias"}:
+        query_parts.append(f"tab={tab}")
 
-    edit_categoria = None
-    categoria_form = AdminPanelCategoriaForm(prefix="cat")
-    open_categoria_modal = (request.GET.get("new_categoria") == "1")
+    new_categoria = (request.GET.get("new_categoria") or "").strip()
+    if new_categoria == "1":
+        query_parts.append("new_categoria=1")
 
-    if request.method == "POST":
-        action = (request.POST.get("action") or "").strip()
+    edit_categoria = (request.GET.get("edit_categoria") or "").strip()
+    if edit_categoria.isdigit():
+        query_parts.append(f"edit_categoria={edit_categoria}")
 
-        if action == "categoria_save":
-            cat_id = request.POST.get("categoria_id")
-            instance = None
-            if cat_id:
-                instance = get_object_or_404(Categoria, id=cat_id)
-                edit_categoria = instance
-
-            categoria_form = AdminPanelCategoriaForm(request.POST, instance=instance, prefix="cat")
-            if categoria_form.is_valid():
-                categoria = categoria_form.save()
-                msg = (
-                    f"Categoría creada: {categoria.nombre}."
-                    if not cat_id else
-                    f"Categoría actualizada: {categoria.nombre}."
-                )
-                messages.success(request, msg)
-                return redirect(f"{reverse('admin_panel:catalogo_home')}?tab=categorias")
-
-            active_tab = "categorias"
-            open_categoria_modal = True
-
-        elif action == "categoria_toggle":
-            categoria = get_object_or_404(Categoria, id=request.POST.get("categoria_id"))
-            categoria.activa = not categoria.activa
-            categoria.save(update_fields=["activa"])
-            estado = "activada" if categoria.activa else "desactivada"
-            messages.success(request, f"Categoría {categoria.nombre} {estado}.")
-            return redirect(f"{reverse('admin_panel:catalogo_home')}?tab=categorias")
-
-        elif action == "categoria_delete":
-            categoria = get_object_or_404(Categoria, id=request.POST.get("categoria_id"))
-            nombre = categoria.nombre
-            try:
-                categoria.delete()
-                messages.success(request, f"Categoría eliminada: {nombre}.")
-            except ProtectedError:
-                messages.error(
-                    request,
-                    f"No se puede eliminar {nombre}: tiene productos asociados.",
-                )
-            return redirect(f"{reverse('admin_panel:catalogo_home')}?tab=categorias")
-
-        else:
-            messages.error(request, "Acción no reconocida.")
-            return redirect(f"{reverse('admin_panel:catalogo_home')}?tab={active_tab}")
-
-    if request.method == "GET":
-        edit_categoria_id = request.GET.get("edit_categoria")
-        if edit_categoria_id:
-            edit_categoria = get_object_or_404(Categoria, id=edit_categoria_id)
-            categoria_form = AdminPanelCategoriaForm(instance=edit_categoria, prefix="cat")
-            active_tab = "categorias"
-            open_categoria_modal = True
-
-    categorias = (
-        Categoria.objects
-        .annotate(productos_count=Count("producto"))
-        .order_by("-activa", "nombre")
-    )
-
-    return render(request, "admin_panel/catalogo_home.html", {
-        "active_tab": active_tab,
-        "categorias": categorias,
-        "categoria_form": categoria_form,
-        "edit_categoria": edit_categoria,
-        "open_categoria_modal": open_categoria_modal,
-        "catalogo_productos_url": reverse("catalogo:productos"),
-    })
+    target = reverse("catalogo:productos")
+    if query_parts:
+        target = f"{target}?{'&'.join(query_parts)}"
+    return redirect(target)
 
 
 def _admin_panel_redirect_with_tab(tab: str, **params):

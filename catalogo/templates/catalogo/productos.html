@@ -1,302 +1,449 @@
+{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Catálogo</title>
+  <title>Catalogo</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'branding/vgc-favicon.svg' %}">
 
-  <!-- Materialize CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-  <!-- Icons -->
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
-  <!-- HTMX -->
   <script defer src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <!-- Materialize JS -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
 
   <style>
     :root{
-      --cat-bg: #f4e7e0;
-      --cat-shell: #efd8cd;
-      --cat-card: #f7eee8;
-      --cat-card-head: #f2e0d4;
-      --cat-border: rgba(121, 85, 72, 0.16);
-      --cat-divider: rgba(121, 85, 72, 0.12);
-      --cat-text: #4e342e;
-      --cat-muted: #7b6259;
-      --cat-shadow: 0 10px 24px rgba(106, 68, 51, 0.10);
-      --cat-shadow-soft: 0 6px 18px rgba(106, 68, 51, 0.07);
+      --bg:#f4e7e0;
+      --shell:#efd8cd;
+      --card:#f7eee8;
+      --border:rgba(121,85,72,.16);
+      --text:#4e342e;
+      --muted:#7b6259;
+      --pos-nav-bg:#7b4f43;
+      --pos-nav-bg-2:#6f463b;
+      --pos-nav-border:rgba(255,255,255,.14);
+      --pos-nav-hover:rgba(255,255,255,.10);
     }
-    * { box-sizing: border-box; }
-    body{
-      margin: 0;
-      background: radial-gradient(circle at top right, rgba(255,255,255,.45), transparent 42%), var(--cat-bg);
-      color: var(--cat-text);
+    body{ margin:0; background:var(--bg); color:var(--text); }
+    .pos-nav{
+      background: linear-gradient(180deg, var(--pos-nav-bg) 0%, var(--pos-nav-bg-2) 100%);
+      border-bottom: 1px solid rgba(0,0,0,.08);
     }
-    .page-wrap{
-      padding: 14px;
-      max-width: 1600px;
-      margin: 0 auto;
-    }
-    .catalogo-shell{
-      border: 1px solid rgba(121, 85, 72, .10);
-      border-radius: 16px;
-      background: var(--cat-shell);
-      box-shadow: var(--cat-shadow-soft);
-      padding: 12px 12px 8px;
-    }
-    .catalogo-head{
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-      padding: 4px 2px 0;
-    }
-    .catalogo-head h4{
-      margin: 0;
-      font-size: 20px;
+    .pos-nav .brand-logo{
       font-weight: 800;
-      color: var(--cat-text);
       letter-spacing: .2px;
+      line-height: 1 !important;
+      height: auto !important;
+      padding: 8px 0;
+      overflow: visible;
     }
-    .catalogo-head p{
-      margin: 4px 0 0;
-      color: var(--cat-muted);
-      font-size: 12px;
+    .pos-nav .brand-logo .brand-mark{
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+      border-radius: 12px;
+      flex: 0 0 auto;
+      display:block;
+      box-shadow: 0 4px 10px rgba(40, 20, 8, 0.18);
+      background: rgba(255,255,255,.10);
+      padding: 1px;
     }
-    .catalogo-head .chip{
-      margin: 0;
-      background: rgba(255,255,255,.55);
-      color: var(--cat-text);
-      border: 1px solid rgba(121, 85, 72, .10);
+    .pos-nav .brand-logo .brand-copy{
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      line-height:1;
+      gap:2px;
+    }
+    .pos-nav .brand-logo .brand-name{
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: .3px;
+      color: #fff;
+    }
+    .pos-nav .brand-logo .brand-caption{
+      font-size: 10px;
+      opacity: .84;
+      color: #fff;
       font-weight: 600;
+      letter-spacing: .25px;
     }
-
-    .row { margin-bottom: 0; }
-    .card{
-      border-radius: 14px;
-      border: 1px solid var(--cat-border);
-      box-shadow: var(--cat-shadow);
-      background: var(--cat-card);
-      overflow: hidden;
+    .pos-nav .nav-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border:1px solid rgba(255,255,255,.15);
+      border-color: var(--pos-nav-border);
+      border-radius:999px;
+      font-size:12px;
+      line-height:1;
+      color:#fff;
+      background: rgba(255,255,255,.06);
+      white-space:nowrap;
     }
-    .card .card-content{
-      padding: 14px 16px;
+    .pos-nav .nav-chip i{ font-size:18px; }
+    .pos-nav .nav-actions a{
+      display:flex;
+      align-items:center;
+      gap:6px;
     }
-    .card .card-title{
-      color: var(--cat-text);
-      font-weight: 700;
-      letter-spacing: .2px;
+    .pos-nav .btn-flat{
+      color:#fff;
     }
-    .card .card-content:first-child{
-      background: linear-gradient(180deg, rgba(242,224,212,.75), rgba(247,238,232,.15));
-      border-bottom: 1px solid rgba(121, 85, 72, .08);
-    }
-
-    .btn, .btn-large {
-      height: 44px;
-      line-height: 44px;
-      border-radius: 10px;
-      text-transform: none;
-      letter-spacing: 0;
-      font-weight: 700;
-      background: #7b4f43;
-      box-shadow: 0 6px 14px rgba(106, 68, 51, 0.15);
-    }
-    .btn:hover, .btn-large:hover{
-      background: #6f463b;
-    }
-    .btn.grey, .btn-large.grey{
-      background: #d9c3b7 !important;
-      color: #4e342e !important;
-      box-shadow: 0 4px 12px rgba(106,68,51,.09);
-    }
-    .btn.grey:hover, .btn-large.grey:hover{
-      background: #d2b8aa !important;
-    }
-    .btn-flat{
-      border-radius: 10px;
-      color: #5d4037;
-      text-transform: none;
-      font-weight: 600;
-    }
-    .btn-flat:hover{
-      background: rgba(121, 85, 72, .08);
-    }
-
-    .input-field input[type=text],
-    .input-field input[type=number],
-    .input-field input[type=search],
-    .input-field textarea.materialize-textarea{
-      border-bottom: 1px solid rgba(121, 85, 72, .22) !important;
-      box-shadow: none !important;
-    }
-    .input-field input:focus,
-    .input-field textarea.materialize-textarea:focus{
-      border-bottom: 1px solid #8d6e63 !important;
-      box-shadow: 0 1px 0 0 #8d6e63 !important;
-    }
-    .input-field .prefix.active,
-    .input-field input:focus + label,
-    .input-field textarea:focus + label{
-      color: #6d4c41 !important;
+    .pos-nav .btn-flat:hover{
+      background: var(--pos-nav-hover);
     }
     .dropdown-content{
-      border-radius: 10px;
-      overflow: hidden;
-      border: 1px solid rgba(121, 85, 72, .10);
-      box-shadow: var(--cat-shadow-soft);
+      border-radius:10px;
+      overflow:hidden;
+    }
+    .dropdown-content li>a, .dropdown-content li>span{
+      font-size:14px;
+    }
+    .pos-nav .nav-wrapper{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      min-height: 64px;
+    }
+    .pos-nav .brand-logo{
+      position: static !important;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      white-space:nowrap;
+    }
+    .pos-nav ul.right{
+      position: static !important;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:nowrap;
+      flex:0 0 auto;
+      min-width:0;
+    }
+    .pos-nav ul.right .btn-flat,
+    .pos-nav ul.right .nav-chip{
+      white-space:nowrap;
+      flex-shrink:0;
+    }
+    .pos-nav i.material-icons{
+      text-transform:none !important;
     }
 
-    .collection{
-      border: 1px solid rgba(121, 85, 72, .10);
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 0;
-      background: #fff;
-    }
-    .collection .collection-item{
-      border-bottom: 1px solid rgba(121, 85, 72, .08);
-      background: rgba(255,255,255,.92);
-      padding: 12px 12px;
-      line-height: 1.35;
-    }
-    .collection .collection-item:last-child{
-      border-bottom: none;
-    }
-    .collection .collection-item .secondary-content{
-      color: #6d4c41;
-    }
-    .collection .collection-item .secondary-content:hover{
-      color: #4e342e;
-    }
-    .badge.new{
-      border-radius: 999px;
-      font-weight: 700;
-    }
+    .wrap{ max-width:1500px; margin:0 auto; padding:14px; }
+    .shell{ border:1px solid rgba(121,85,72,.12); border-radius:14px; background:var(--shell); padding:12px; }
+    .head{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .head h4{ margin:0; font-size:1.6rem; font-weight:800; }
+    .head p{ margin:2px 0 0; font-size:12px; color:var(--muted); }
 
-    table.striped, table.highlight{
-      border: 1px solid rgba(121, 85, 72, .10);
-      border-radius: 10px;
-      overflow: hidden;
-      background: #fff;
-    }
-    table.striped thead, table.highlight thead{
-      background: rgba(121, 85, 72, .08);
-    }
-    table.striped th, table.highlight th{
-      color: #5d4037;
-      font-weight: 700;
-      border-bottom: 1px solid rgba(121, 85, 72, .10);
-    }
-    table.striped td, table.highlight td{
-      vertical-align: top;
-    }
-    table.striped > tbody > tr:nth-child(odd){
-      background-color: rgba(121, 85, 72, .025);
-    }
-    table.highlight > tbody > tr:hover{
-      background-color: rgba(121, 85, 72, .05);
-    }
+    .card{ background:var(--card); border:1px solid var(--border); border-radius:12px; }
+    .card .card-content:first-child{ border-bottom:1px solid rgba(121,85,72,.1); }
+    .btn,.btn-large{ text-transform:none; border-radius:10px; }
+    .tab-btns{ display:flex; gap:8px; flex-wrap:wrap; }
+    .table-wrap{ overflow:auto; }
 
-    #variantes_panel{
-      min-height: 340px;
-    }
-    #variantes_panel h5{
-      color: var(--cat-text);
-      font-weight: 700;
-      font-size: 20px;
-    }
-    #variantes_panel p.grey-text{
-      color: var(--cat-muted) !important;
-    }
-    #variantes_panel .btn{
-      margin-right: 8px;
-      margin-bottom: 8px;
-    }
-    #variantes_panel .material-icons{
-      vertical-align: middle;
-    }
+    .status-chip{ display:inline-block; padding:3px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+    .status-chip.active{ background:#e8f5e9; color:#2e7d32; }
+    .status-chip.inactive{ background:#ffebee; color:#c62828; }
+    .icon-btn{ width:34px; height:34px; border:1px solid rgba(121,85,72,.2); border-radius:8px; display:inline-flex; align-items:center; justify-content:center; background:rgba(121,85,72,.06); color:#5d4037; }
+    .icon-btn.delete{ color:#c62828; border-color:rgba(198,40,40,.24); background:rgba(198,40,40,.08); }
 
-    .modal{
-      max-height: 94%;
-      width: min(1080px, 94vw);
-      border-radius: 16px;
-      overflow: visible;
-      background: var(--cat-card);
-      border: 1px solid rgba(121, 85, 72, .14);
-      box-shadow: 0 16px 40px rgba(80, 52, 40, 0.18);
-      left: 50% !important;
-      right: auto !important;
-      margin: 0 !important;
-      transform: translateX(-50%) !important;
-    }
-    .modal .modal-content{
-      background: radial-gradient(circle at top right, rgba(255,255,255,.55), transparent 40%), var(--cat-card);
-      padding: 18px 22px 12px;
-      overflow: visible !important;
-    }
-    #modal_main .modal-content{
-      max-height: calc(94vh - 26px);
-      overflow-y: auto !important;
-      overflow-x: visible !important;
-      padding-bottom: 18px;
-    }
-    .modal .modal-footer{
-      background: linear-gradient(180deg, rgba(242,224,212,.9), rgba(247,238,232,.95));
-      border-top: 1px solid rgba(121, 85, 72, .12);
-      padding: 10px 16px;
-    }
-    .modal .modal-footer .btn,
-    .modal .modal-footer .btn-flat{
-      border-radius: 10px;
-    }
-    #modal_main .dropdown-content{
-      z-index: 2005 !important;
-    }
-    #modal_main .input-field .select-wrapper input.select-dropdown{
-      height: 42px;
-      line-height: 42px;
-      margin-bottom: 0;
-      padding: 0 38px 0 12px;
-      border: 1px solid rgba(121, 85, 72, .18);
-      border-radius: 10px;
-      background: rgba(255,255,255,.65);
-      box-sizing: border-box;
-    }
-    #modal_main .input-field .select-wrapper .caret{
-      fill: #6d4c41;
-      right: 10px;
-    }
-    #modal_main .dropdown-content.select-dropdown{
-      border-radius: 12px;
-      border: 1px solid rgba(121, 85, 72, .14);
-      box-shadow: 0 12px 26px rgba(80, 52, 40, 0.14);
-      overflow: hidden;
-      margin-top: 6px;
-    }
-    #modal_main .dropdown-content.select-dropdown li > span{
-      color: var(--cat-text);
-      font-size: 14px;
-      line-height: 1.25;
-      padding: 12px 14px;
-    }
-    #modal_main .dropdown-content.select-dropdown li:hover,
-    #modal_main .dropdown-content.select-dropdown li.selected{
-      background: rgba(121, 85, 72, .08);
-    }
+    .flash{ border-radius:10px; padding:10px 12px; margin-bottom:10px; border:1px solid rgba(121,85,72,.1); }
 
+    .modal{ border-radius:14px; }
+
+    @media (max-width: 1280px){
+      #nav_clock{ display:none; }
+      #nav_date{ display:none; }
+      .pos-nav .brand-logo .brand-caption{ display:none; }
+    }
     @media (max-width: 992px){
-      .page-wrap{ padding: 10px; }
-      .catalogo-shell{ padding: 10px 10px 8px; }
-      .card .card-content{ padding: 12px; }
+      .wrap{ padding:10px; }
     }
   </style>
+</head>
+<body>
+  <nav class="pos-nav z-depth-1">
+    <div class="nav-wrapper container">
+      <a href="{% url 'catalogo:productos' %}" class="brand-logo">
+        <img class="brand-mark" src="{% static 'branding/vgc-favicon.svg' %}" alt="VGC">
+        <span class="brand-copy">
+          <span class="brand-name">VGC</span>
+          <span class="brand-caption">Sistema de Ventas</span>
+        </span>
+      </a>
 
-  <script defer>
+      <a href="#" data-target="mobile_nav" class="sidenav-trigger">
+        <i class="material-icons">menu</i>
+      </a>
+
+      <ul class="right hide-on-med-and-down nav-actions">
+        <li>
+          <a class="btn-flat waves-effect" href="{% url 'core:dashboard' %}">
+            <i class="material-icons">dashboard</i>
+            Dashboard
+          </a>
+        </li>
+        {% if can_access_caja %}
+          <li>
+            <a class="btn-flat waves-effect" href="{% url 'caja:pos' %}">
+              <i class="material-icons">point_of_sale</i>
+              Caja
+            </a>
+          </li>
+        {% endif %}
+        <li>
+          <a class="btn-flat waves-effect" href="{% url 'catalogo:productos' %}">
+            <i class="material-icons">inventory_2</i>
+            Catalogo
+          </a>
+        </li>
+        {% if can_access_admin_panel %}
+          <li>
+            <a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}">
+              <i class="material-icons">admin_panel_settings</i>
+              Admin Panel
+            </a>
+          </li>
+        {% endif %}
+        <li>
+          <span class="nav-chip">
+            <i class="material-icons">store</i>
+            {% if sucursal_nav %}{{ sucursal_nav.nombre }}{% else %}Sin sucursal{% endif %}
+          </span>
+        </li>
+        <li>
+          <span class="nav-chip" id="nav_date">
+            <i class="material-icons">calendar_today</i>
+            --/--/----
+          </span>
+        </li>
+        <li>
+          <span class="nav-chip" id="nav_clock">
+            <i class="material-icons">schedule</i>
+            --:--
+          </span>
+        </li>
+        <li>
+          <a class="dropdown-trigger btn-flat waves-effect" href="#!" data-target="user_dd">
+            <i class="material-icons">account_circle</i>
+            {{ request.user.username|default:"Usuario" }}
+            <i class="material-icons right">arrow_drop_down</i>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <ul id="user_dd" class="dropdown-content">
+    <li><a href="{% url 'password_change' %}"><i class="material-icons">lock</i>Cambiar clave</a></li>
+    <li class="divider" tabindex="-1"></li>
+    <li>
+      <a href="{% url 'logout' %}" onclick="event.preventDefault(); document.getElementById('pos_logout_form').submit();">
+        <i class="material-icons">logout</i>Salir
+      </a>
+    </li>
+  </ul>
+
+  <form id="pos_logout_form" method="post" action="{% url 'logout' %}" style="display:none;">{% csrf_token %}</form>
+
+  <ul class="sidenav" id="mobile_nav">
+    <li>
+      <div class="user-view" style="background:#0f172a;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+          <img src="{% static 'branding/vgc-badge.svg' %}" alt="VGC" style="width:52px; height:34px; object-fit:contain; border-radius:8px;">
+          <div>
+            <div class="white-text" style="font-weight:800; line-height:1.1;">VGC</div>
+            <div class="white-text" style="opacity:.85; font-size:12px; line-height:1.1;">Sistema de Ventas</div>
+          </div>
+        </div>
+        <span class="white-text" style="opacity:.85;">{% if sucursal_nav %}{{ sucursal_nav.nombre }}{% else %}Sin sucursal{% endif %}</span>
+        <span class="white-text" style="opacity:.85;">{{ request.user.username|default:"Usuario" }}</span>
+      </div>
+    </li>
+    <li><a href="{% url 'core:dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
+    {% if can_access_caja %}
+      <li><a href="{% url 'caja:pos' %}"><i class="material-icons">point_of_sale</i>Caja</a></li>
+    {% endif %}
+    <li><a href="{% url 'catalogo:productos' %}"><i class="material-icons">inventory_2</i>Catalogo</a></li>
+    {% if can_access_admin_panel %}
+      <li><a href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
+    {% endif %}
+    <li>
+      <a href="{% url 'logout' %}" onclick="event.preventDefault(); document.getElementById('pos_logout_form').submit();">
+        <i class="material-icons">logout</i>Salir
+      </a>
+    </li>
+  </ul>
+
+  <form id="csrf-holder" style="display:none;">{% csrf_token %}</form>
+
+  <div class="wrap">
+    {% if messages %}
+      {% for message in messages %}
+        {% if message.tags == "success" %}<div class="flash green lighten-4 green-text text-darken-4">{{ message }}</div>{% endif %}
+        {% if message.tags == "error" %}<div class="flash red lighten-4 red-text text-darken-4">{{ message }}</div>{% endif %}
+        {% if message.tags == "warning" %}<div class="flash yellow lighten-4 brown-text text-darken-4">{{ message }}</div>{% endif %}
+      {% endfor %}
+    {% endif %}
+
+    <div class="shell">
+      <div class="head">
+        <div>
+          <h4>Catalogo</h4>
+          <p>Productos, variantes y categorias desde una sola pantalla.</p>
+        </div>
+        {% if active_tab == "categorias" %}
+          <a href="{% url 'catalogo:productos' %}?tab=categorias&new_categoria=1" class="btn brown darken-1 waves-effect waves-light">
+            <i class="material-icons left">add</i>Nueva categoria
+          </a>
+        {% endif %}
+      </div>
+
+      <div class="card" style="margin:0 0 12px 0;">
+        <div class="card-content" style="padding:10px 16px;">
+          <div class="tab-btns">
+            <a class="btn {% if active_tab == 'productos' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect" href="{% url 'catalogo:productos' %}?tab=productos">
+              <i class="material-icons left">inventory_2</i>Productos
+            </a>
+            <a class="btn {% if active_tab == 'categorias' %}blue{% else %}grey lighten-3 black-text{% endif %} waves-effect" href="{% url 'catalogo:productos' %}?tab=categorias">
+              <i class="material-icons left">category</i>Categorias
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-productos" {% if active_tab != 'productos' %}style="display:none;"{% endif %}>
+        <div class="row">
+          <div class="col s12 m6">
+            <div class="card">
+              <div class="card-content">
+                <span class="card-title">Productos</span>
+                <div class="input-field">
+                  <input id="q" name="q" type="text" placeholder="Nombre / Categoria..."
+                         hx-get="{% url 'catalogo:productos_buscar' %}"
+                         hx-trigger="keyup changed delay:300ms"
+                         hx-target="#productos_lista"
+                         hx-include="#q">
+                  <label for="q">Buscar</label>
+                </div>
+                <div class="right-align">
+                  <a class="btn-large" href="javascript:void(0)"
+                     hx-get="{% url 'catalogo:producto_nuevo' %}"
+                     hx-target="#modal_body"
+                     hx-swap="innerHTML">
+                    <i class="material-icons left">add</i>Nuevo
+                  </a>
+                </div>
+              </div>
+              <div class="card-content" id="productos_lista">
+                {% include "catalogo/_productos_lista.html" %}
+              </div>
+            </div>
+          </div>
+          <div class="col s12 m6">
+            <div class="card">
+              <div class="card-content">
+                <span class="card-title">Variantes</span>
+                <p class="grey-text">Selecciona un producto para ver y editar variantes.</p>
+              </div>
+              <div class="card-content" id="variantes_panel"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-categorias" {% if active_tab != 'categorias' %}style="display:none;"{% endif %}>
+        <div class="card">
+          <div class="card-content">
+            <div class="table-wrap">
+              <table class="striped">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Productos</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for categoria in categorias %}
+                    <tr>
+                      <td><strong>{{ categoria.nombre }}</strong></td>
+                      <td>{{ categoria.productos_count }}</td>
+                      <td>
+                        {% if categoria.activa %}
+                          <span class="status-chip active">Activa</span>
+                        {% else %}
+                          <span class="status-chip inactive">Inactiva</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <a href="{% url 'catalogo:productos' %}?tab=categorias&edit_categoria={{ categoria.id }}" class="icon-btn waves-effect" title="Editar"><i class="material-icons">edit</i></a>
+
+                        <form method="post" style="display:inline;">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="categoria_toggle">
+                          <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+                          <button type="submit" class="icon-btn waves-effect" title="Toggle"><i class="material-icons">{% if categoria.activa %}toggle_off{% else %}toggle_on{% endif %}</i></button>
+                        </form>
+
+                        <form method="post" style="display:inline;" onsubmit="return confirm('Eliminar la categoria {{ categoria.nombre|escapejs }}?');">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="categoria_delete">
+                          <input type="hidden" name="categoria_id" value="{{ categoria.id }}">
+                          <button type="submit" class="icon-btn delete waves-effect" title="Eliminar"><i class="material-icons">delete</i></button>
+                        </form>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="4" class="grey-text">No hay categorias cargadas.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal_main" class="modal">
+    <div class="modal-content" id="modal_body"></div>
+  </div>
+
+  <div id="modal-categoria" class="modal modal-fixed-footer">
+    <div class="modal-content">
+      <h5>{% if edit_categoria %}Editar categoria{% else %}Nueva categoria{% endif %}</h5>
+      <form id="form-categoria" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="categoria_save">
+        {% if edit_categoria %}<input type="hidden" name="categoria_id" value="{{ edit_categoria.id }}">{% endif %}
+
+        <div class="input-field">
+          {{ categoria_form.nombre }}
+          <label for="{{ categoria_form.nombre.id_for_label }}" class="active">Nombre</label>
+          {% for err in categoria_form.nombre.errors %}<div class="red-text" style="font-size:12px;">{{ err }}</div>{% endfor %}
+        </div>
+
+        <p>
+          <label>
+            {{ categoria_form.activa }}
+            <span>Categoria activa</span>
+          </label>
+        </p>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <a href="{% url 'catalogo:productos' %}?tab=categorias" class="btn-flat waves-effect">Cancelar</a>
+      <button type="submit" form="form-categoria" class="btn brown darken-1 waves-effect waves-light">Guardar</button>
+    </div>
+  </div>
+
+  <script>
     function initCatalogoSelects(root) {
       if (typeof M === "undefined") return;
       const scope = root && root.querySelectorAll ? root : document;
@@ -307,7 +454,6 @@
       });
     }
 
-    // Abre el modal principal y re-inicializa componentes Materialize dentro del modal
     function openMainModal() {
       const el = document.getElementById('modal_main');
       if (!el || typeof M === "undefined") return;
@@ -315,138 +461,85 @@
       inst.open();
       if (M.updateTextFields) M.updateTextFields();
       initCatalogoSelects(document);
-      
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-      // Inicialización Materialize global
       if (typeof M !== "undefined") {
-        M.AutoInit();
+        M.Modal.init(document.querySelectorAll('.modal'), {});
+        M.Dropdown.init(document.querySelectorAll('.dropdown-trigger'), { coverTrigger:false, constrainWidth:false });
+        M.Sidenav.init(document.querySelectorAll('.sidenav'));
+        initCatalogoSelects(document);
       }
 
-      // ✅ CSRF para HTMX (evita 403 en hx-post, ej: eliminar variante)
+      function tickNavClock(){
+        const dateEl = document.getElementById('nav_date');
+        const timeEl = document.getElementById('nav_clock');
+        const d = new Date();
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mi = String(d.getMinutes()).padStart(2, '0');
+        if (dateEl) {
+          dateEl.innerHTML = '<i class="material-icons">calendar_today</i> ' + dd + '/' + mm + '/' + yyyy;
+        }
+        if (timeEl) {
+          timeEl.innerHTML = '<i class="material-icons">schedule</i> ' + hh + ':' + mi;
+        }
+      }
+      tickNavClock();
+      setInterval(tickNavClock, 10000);
+
       document.body.addEventListener('htmx:configRequest', function (event) {
         const token = document.querySelector('#csrf-holder [name=csrfmiddlewaretoken]')?.value;
-        if (token) {
-          event.detail.headers['X-CSRFToken'] = token;
-        }
+        if (token) event.detail.headers['X-CSRFToken'] = token;
       });
 
-      // Cuando HTMX inserta contenido en el modal, lo abrimos
       document.body.addEventListener('htmx:afterSwap', function(e) {
-        if (e.detail.target && e.detail.target.id === "modal_body") {
+        if (e.detail.target && e.detail.target.id === 'modal_body') {
           openMainModal();
         }
-        // Re-init selects por si se actualizaron parciales
-        if (typeof M !== "undefined") {
+        if (typeof M !== 'undefined') {
           initCatalogoSelects(document);
         }
       });
 
-      // Si se actualizó stock y el modal de detalle está abierto, recarga el contenido del modal
-      document.body.addEventListener("stockUpdated", function() {
-        const modalBody = document.getElementById("modal_body");
+      document.body.addEventListener('stockUpdated', function() {
+        const modalBody = document.getElementById('modal_body');
         if (!modalBody) return;
-        const vid = modalBody.getAttribute("data-variante-id");
-        if (!vid || typeof htmx === "undefined") return;
-
-        htmx.ajax('GET', `/catalogo/variante/${vid}/stock/detalle/`, {
+        const vid = modalBody.getAttribute('data-variante-id');
+        if (!vid || typeof htmx === 'undefined') return;
+        htmx.ajax('GET', '/catalogo/variante/' + vid + '/stock/detalle/', {
           target: '#modal_body',
           swap: 'innerHTML'
         });
       });
 
-      // Enter en input de stock: evita submit normal, dispara blur y cierra modal
       document.addEventListener('keydown', function(e) {
         if (e.key !== 'Enter') return;
-
         const el = e.target;
         if (!el || !el.classList || !el.classList.contains('stock-input')) return;
-
         e.preventDefault();
-        el.blur(); // fuerza change/blur para HTMX
+        el.blur();
         document.body.dispatchEvent(new Event('closeModal'));
       });
 
-      // Cerrar modal por evento (disparado desde Django con HX-Trigger: closeModal)
-      document.body.addEventListener("closeModal", function() {
+      document.body.addEventListener('closeModal', function() {
         const el = document.getElementById('modal_main');
-        if (!el || typeof M === "undefined") return;
+        if (!el || typeof M === 'undefined') return;
         const inst = M.Modal.getInstance(el);
         if (inst) inst.close();
       });
+
+      {% if open_categoria_modal and active_tab == 'categorias' %}
+      setTimeout(function () {
+        const modalEl = document.getElementById('modal-categoria');
+        if (!modalEl || typeof M === 'undefined') return;
+        const instance = M.Modal.getInstance(modalEl) || M.Modal.init(modalEl, {});
+        instance.open();
+      }, 0);
+      {% endif %}
     });
   </script>
-</head>
-
-<body>
-  <!-- ✅ CSRF global disponible para HTMX -->
-  <form id="csrf-holder" style="display:none;">{% csrf_token %}</form>
-
-  <div class="page-wrap">
-    <div class="catalogo-shell">
-      <div class="catalogo-head">
-        <div>
-          <h4>Catálogo</h4>
-          <p>Productos y variantes con edición rápida y stock por sucursal</p>
-        </div>
-        <div class="chip">
-          <i class="material-icons tiny" style="vertical-align:middle; margin-right:4px;">inventory_2</i>
-          Gestión de catálogo
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="col s12 m6">
-          <div class="card">
-            <div class="card-content">
-              <span class="card-title">Productos</span>
-
-              <div class="row" style="margin-bottom:0;">
-                <div class="input-field col s12">
-                  <input id="q" name="q" type="text" placeholder="Nombre / Categoría..."
-                         hx-get="{% url 'catalogo:productos_buscar' %}"
-                         hx-trigger="keyup changed delay:300ms"
-                         hx-target="#productos_lista"
-                         hx-include="#q">
-                  <label for="q">Buscar</label>
-                </div>
-              </div>
-
-              <div class="right-align">
-                <a class="btn-large"
-                   href="javascript:void(0)"
-                   hx-get="{% url 'catalogo:producto_nuevo' %}"
-                   hx-target="#modal_body"
-                   hx-swap="innerHTML">
-                  <i class="material-icons left">add</i>Nuevo
-                </a>
-              </div>
-            </div>
-
-            <div class="card-content" id="productos_lista">
-              {% include "catalogo/_productos_lista.html" %}
-            </div>
-          </div>
-        </div>
-
-        <div class="col s12 m6">
-          <div class="card">
-            <div class="card-content">
-              <span class="card-title">Variantes</span>
-              <p class="grey-text">Seleccioná un producto para ver/editar variantes.</p>
-            </div>
-            <div class="card-content" id="variantes_panel"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal reutilizable -->
-  <div id="modal_main" class="modal">
-    <div class="modal-content" id="modal_body"></div>
-  </div>
-
 </body>
 </html>

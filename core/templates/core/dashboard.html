@@ -129,6 +129,135 @@
       .app-nav .btn-flat{ padding:0 8px; }
       .app-nav .brand-logo .brand-caption{ display:none; }
     }
+    .core-dashboard { padding-bottom: 18px; }
+    .hero-shell {
+      border-radius: 16px;
+      border: 1px solid rgba(156, 103, 76, 0.2);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,.42), transparent 46%),
+        linear-gradient(135deg, #f7eee8 0%, #f1dfd2 100%);
+      padding: 18px 18px 14px;
+      box-shadow: 0 12px 24px rgba(109, 79, 66, 0.08);
+      margin-top: 14px;
+      margin-bottom: 14px;
+    }
+    .hero-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .hero-title {
+      margin: 4px 0 3px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      color: #55392f;
+    }
+    .scope-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(123, 79, 67, 0.25);
+      background: rgba(255,255,255,.55);
+      color: #7b4f43;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 10px;
+      white-space: nowrap;
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .hero-actions .btn {
+      border-radius: 10px;
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 700;
+    }
+    .metric-card {
+      border-radius: 14px;
+      border: 1px solid rgba(156, 103, 76, 0.2);
+      background: #f8f1eb;
+      box-shadow: 0 8px 18px rgba(109, 79, 66, 0.06);
+      min-height: 132px;
+    }
+    .metric-label {
+      font-size: .82rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #83695f;
+      font-weight: 700;
+    }
+    .metric-value {
+      margin: 8px 0 4px;
+      font-size: 1.9rem;
+      line-height: 1;
+      font-weight: 800;
+      color: #3f2f29;
+    }
+    .metric-note {
+      margin: 0;
+      color: var(--ui-text-soft);
+      font-size: .88rem;
+    }
+    .surface-card {
+      border-radius: 14px;
+      border: 1px solid rgba(156, 103, 76, 0.2);
+      background: #f7eee8;
+      box-shadow: 0 8px 18px rgba(109, 79, 66, 0.06);
+    }
+    .section-title {
+      margin: 0;
+      font-size: 1.06rem;
+      font-weight: 800;
+      color: #4f352b;
+    }
+    .section-subtitle {
+      margin-top: 4px;
+      margin-bottom: 12px;
+      color: #7a6258;
+      font-size: .9rem;
+    }
+    .shortcut-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .shortcut-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(156, 103, 76, 0.2);
+      background: rgba(255,255,255,.52);
+      color: #5c3d33;
+      font-weight: 700;
+      padding: 10px 12px;
+    }
+    .shortcut-btn i { color: #7b4f43; }
+    .sensitive-mask {
+      border-radius: 12px;
+      border: 1px dashed rgba(123, 79, 67, .35);
+      background: rgba(255,255,255,.45);
+      color: #7a6258;
+      padding: 12px;
+      font-size: .92rem;
+    }
+    .table-wrap table th {
+      color: #6f463b;
+      font-weight: 700;
+      border-bottom: 1px solid rgba(156, 103, 76, 0.2);
+    }
+    .table-wrap table td {
+      border-bottom: 1px solid rgba(156, 103, 76, 0.1);
+    }
   </style>
 </head>
 
@@ -145,8 +274,13 @@
       </a>
       <ul class="nav-actions">
         <li><a class="btn-flat waves-effect" href="{% url 'core:dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
+        {% if can_access_caja %}
         <li><a class="btn-flat waves-effect" href="{% url 'caja:pos' %}"><i class="material-icons">point_of_sale</i>Caja</a></li>
+        {% endif %}
+        <li><a class="btn-flat waves-effect" href="{% url 'catalogo:productos' %}"><i class="material-icons">inventory_2</i>Catalogo</a></li>
+        {% if can_access_admin_panel %}
         <li><a class="btn-flat waves-effect" href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
+        {% endif %}
         <li><span class="nav-chip" id="core_nav_date"><i class="material-icons">calendar_today</i>--/--/----</span></li>
         <li><span class="nav-chip" id="core_nav_time"><i class="material-icons">schedule</i>--:--</span></li>
         <li>
@@ -173,141 +307,173 @@
     {% csrf_token %}
   </form>
 
-  <main class="container">
-
-    <div class="row" style="margin-top:10px;">
-      <div class="col s12">
-        <div class="chip chip-soft">Hoy: {{ hoy|date:"d/m/Y" }}</div>
-        <h5 class="page-title">Panel principal</h5>
-        <div class="muted">Resumen del día, accesos rápidos y alertas operativas.</div>
+  <main class="container core-dashboard">
+    <section class="hero-shell">
+      <div class="hero-head">
+        <div>
+          <div class="scope-pill">
+            <i class="material-icons tiny">visibility</i>{{ dashboard_scope_label }}
+          </div>
+          <h4 class="hero-title">Dashboard Operativo</h4>
+          <div class="muted">Estado de actividad del día {{ hoy|date:"d/m/Y" }} y accesos de trabajo.</div>
+        </div>
       </div>
-    </div>
+      <div class="hero-actions">
+        {% if can_access_caja %}
+          <a class="btn brown darken-2 waves-effect" href="{% url 'caja:pos' %}">
+            <i class="material-icons left">point_of_sale</i>Abrir caja
+          </a>
+        {% endif %}
+        {% if can_access_admin_panel %}
+          <a class="btn blue-grey darken-2 waves-effect" href="{% url 'admin_panel:dashboard' %}">
+            <i class="material-icons left">admin_panel_settings</i>Ir a Admin Panel
+          </a>
+        {% endif %}
+      </div>
+    </section>
 
-    <!-- KPIs -->
     <div class="row">
-      <div class="col s12 m6 l3">
-        <div class="card white z-depth-1">
-          <div class="card-content">
-            <div class="kpi-title">Ventas hoy</div>
-            <h5 class="kpi-value">{{ kpis.ventas_hoy }}</h5>
-            <div class="muted">Operaciones registradas</div>
+      {% if can_view_sensitive_dashboard %}
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Ventas hoy</div>
+              <div class="metric-value">{{ kpis.ventas_hoy }}</div>
+              <p class="metric-note">Operaciones confirmadas en el período.</p>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="col s12 m6 l3">
-        <div class="card white z-depth-1">
-          <div class="card-content">
-            <div class="kpi-title">Ingresos hoy</div>
-            <h5 class="kpi-value">$ {{ kpis.ingresos_hoy }}</h5>
-            <div class="muted">Total facturado</div>
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Ingresos hoy</div>
+              <div class="metric-value">$ {{ kpis.ingresos_hoy|floatformat:2 }}</div>
+              <p class="metric-note">Facturación diaria acumulada.</p>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="col s12 m6 l3">
-        <div class="card white z-depth-1">
-          <div class="card-content">
-            <div class="kpi-title">Ticket promedio</div>
-            <h5 class="kpi-value">$ {{ kpis.ticket_promedio }}</h5>
-            <div class="muted">Promedio por venta</div>
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Ticket promedio</div>
+              <div class="metric-value">$ {{ kpis.ticket_promedio|floatformat:2 }}</div>
+              <p class="metric-note">Promedio por venta confirmada.</p>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="col s12 m6 l3">
-        <div class="card white z-depth-1">
-          <div class="card-content">
-            <div class="kpi-title">Stock bajo</div>
-            <h5 class="kpi-value">{{ kpis.stock_bajo }}</h5>
-            <div class="muted">Productos a reponer</div>
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Stock bajo</div>
+              <div class="metric-value">{{ kpis.stock_bajo }}</div>
+              <p class="metric-note">Productos para reposición.</p>
+            </div>
           </div>
         </div>
-      </div>
+      {% else %}
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Sucursal asignada</div>
+              <div class="metric-value" style="font-size:1.25rem; line-height:1.2;">
+                {% if user_sucursal %}{{ user_sucursal.nombre }}{% else %}Sin asignar{% endif %}
+              </div>
+              <p class="metric-note">Tu vista muestra datos operativos restringidos.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Acceso</div>
+              <div class="metric-value" style="font-size:1.25rem; line-height:1.2;">Operativo</div>
+              <p class="metric-note">Sin exposición de montos ni datos de clientes.</p>
+            </div>
+          </div>
+        </div>
+        <div class="col s12 m6 l3">
+          <div class="card metric-card">
+            <div class="card-content">
+              <div class="metric-label">Actividad de hoy</div>
+              <div class="metric-value" style="font-size:1.25rem; line-height:1.2;">Operativa</div>
+              <p class="metric-note">KPI financieros visibles solo para perfiles autorizados.</p>
+            </div>
+          </div>
+        </div>
+      {% endif %}
     </div>
 
-    <!-- Accesos rápidos + Caja -->
     <div class="row">
       <div class="col s12 l7">
-        <div class="card white z-depth-1">
+        <div class="card surface-card">
           <div class="card-content">
-            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Accesos rápidos</span>
-
-            <div class="row" style="margin-bottom:0;">
-              <div class="col s12 m6">
-                <a class="btn blue darken-2 waves-effect btn-round" href="/ventas/">
-                  Ventas / POS
+            <h6 class="section-title">Accesos útiles</h6>
+            <p class="section-subtitle">Atajos para operar sin salir del flujo diario.</p>
+            <div class="shortcut-grid">
+              {% if can_access_caja %}
+                <a class="shortcut-btn waves-effect" href="{% url 'caja:pos' %}">
+                  <i class="material-icons">point_of_sale</i>POS / Ventas
                 </a>
-                <div class="muted" style="margin:8px 0 14px 0;">Registrar ventas rápido.</div>
-              </div>
-
-              <div class="col s12 m6">
-                <a class="btn teal darken-2 waves-effect btn-round" href="/catalogo/">
-                  Productos / Catálogo
+              {% endif %}
+              <a class="shortcut-btn waves-effect" href="{% url 'password_change' %}">
+                <i class="material-icons">lock</i>Cambiar clave
+              </a>
+              {% if can_access_admin_panel %}
+                <a class="shortcut-btn waves-effect" href="{% url 'admin_panel:ventas_lista' %}">
+                  <i class="material-icons">receipt_long</i>Listado de ventas
                 </a>
-                <div class="muted" style="margin:8px 0 14px 0;">Altas, edición y stock.</div>
-              </div>
-
-              <div class="col s12 m6">
-                <a class="btn brown darken-2 waves-effect btn-round" href="/caja/">
-                  Caja
+                <a class="shortcut-btn waves-effect" href="{% url 'admin_panel:dashboard' %}">
+                  <i class="material-icons">settings</i>Panel administrativo
                 </a>
-                <div class="muted" style="margin:8px 0 14px 0;">Ingresos/egresos y cierres.</div>
-              </div>
-
-              <div class="col s12 m6">
-                <a class="btn grey darken-2 waves-effect btn-round" href="{% url 'admin_panel:dashboard' %}">
-                  Admin Panel
-                </a>
-                <div class="muted" style="margin:8px 0 14px 0;">Configuración, reportes y gestión interna.</div>
-              </div>
+              {% endif %}
             </div>
-
           </div>
         </div>
       </div>
 
       <div class="col s12 l5">
-        <div class="card white z-depth-1">
+        <div class="card surface-card">
           <div class="card-content">
-            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Estado de caja</span>
-
-            <div class="card-panel" style="background:#f2e0d4; color:#6f463b;">
-              <div style="font-weight:700; font-size:1.1rem;">Saldo actual: $ {{ caja.saldo_actual }}</div>
-              <div class="muted">Resumen del día</div>
-            </div>
-
-            <ul class="collection" style="border-radius:12px; overflow:hidden;">
-              <li class="collection-item">
-                <b>Ingresos hoy:</b> $ {{ caja.ingresos_hoy }}
-              </li>
-              <li class="collection-item">
-                <b>Egresos hoy:</b> $ {{ caja.egresos_hoy }}
-              </li>
-            </ul>
-
-            <div class="muted">Próximo paso: agregar botón de “Cierre de caja”.</div>
+            <h6 class="section-title">Caja y visibilidad</h6>
+            {% if can_view_sensitive_dashboard %}
+              <p class="section-subtitle">Resumen financiero diario para control gerencial.</p>
+              <div class="card-panel" style="background:#f2e0d4; color:#6f463b;">
+                <div style="font-weight:700; font-size:1.1rem;">Saldo actual: $ {{ caja.saldo_actual|floatformat:2 }}</div>
+                <div class="muted">Corte acumulado</div>
+              </div>
+              <ul class="collection" style="border-radius:12px; overflow:hidden;">
+                <li class="collection-item"><b>Ingresos hoy:</b> $ {{ caja.ingresos_hoy|floatformat:2 }}</li>
+                <li class="collection-item"><b>Egresos hoy:</b> $ {{ caja.egresos_hoy|floatformat:2 }}</li>
+              </ul>
+            {% else %}
+              <p class="section-subtitle">Perfil operativo con información limitada.</p>
+              <div class="sensitive-mask">
+                Los montos de ingresos, egresos, saldo de caja y datos de clientes están ocultos para este perfil.
+              </div>
+            {% endif %}
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Últimas ventas + Alertas -->
     <div class="row">
       <div class="col s12 l8">
-        <div class="card white z-depth-1">
+        <div class="card surface-card">
           <div class="card-content">
-            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Últimas ventas</span>
-
+            <h6 class="section-title">Actividad reciente</h6>
+            <p class="section-subtitle">Últimos movimientos de ventas dentro de tu alcance.</p>
             <div class="table-wrap">
               <table class="striped">
                 <thead>
                   <tr>
                     <th>Fecha</th>
                     <th>N°</th>
-                    <th>Cliente</th>
-                    <th>Total</th>
+                    {% if can_view_sensitive_dashboard %}
+                      <th>Cliente</th>
+                      <th>Total</th>
+                    {% endif %}
                     <th>Estado</th>
+                    <th style="width:130px;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -316,33 +482,42 @@
                       <tr>
                         <td>{{ v.fecha }}</td>
                         <td>{{ v.nro }}</td>
-                        <td>{{ v.cliente }}</td>
-                        <td>$ {{ v.total }}</td>
+                        {% if can_view_sensitive_dashboard %}
+                          <td>{{ v.cliente }}</td>
+                          <td>$ {{ v.total|floatformat:2 }}</td>
+                        {% endif %}
                         <td>{{ v.estado }}</td>
+                        <td>
+                          {% if can_access_caja %}
+                            <a class="btn-flat waves-effect" href="{% url 'caja:ticket' v.id %}?print=1" title="Reimprimir ticket">
+                              <i class="material-icons">print</i>
+                            </a>
+                          {% else %}
+                            <span class="muted">-</span>
+                          {% endif %}
+                        </td>
                       </tr>
                     {% endfor %}
                   {% else %}
                     <tr>
-                      <td colspan="5" class="muted">Aún no hay ventas registradas hoy.</td>
+                      <td colspan="{% if can_view_sensitive_dashboard %}6{% else %}4{% endif %}" class="muted">
+                        No hay registros recientes para mostrar.
+                      </td>
                     </tr>
                   {% endif %}
                 </tbody>
               </table>
-            </div>
-
-            <div style="margin-top:12px;">
-              <a class="btn-flat waves-effect" href="/ventas/">Ver todas</a>
             </div>
           </div>
         </div>
       </div>
 
       <div class="col s12 l4">
-        <div class="card white z-depth-1">
+        <div class="card surface-card">
           <div class="card-content">
-            <span class="card-title" style="font-size:1.1rem; font-weight:700;">Alertas</span>
-
-            {% if alertas %}
+            <h6 class="section-title">Alertas operativas</h6>
+            <p class="section-subtitle">Seguimiento rápido de pendientes del sistema.</p>
+            {% if can_view_sensitive_dashboard and alertas %}
               <ul class="collection" style="border-radius:12px; overflow:hidden;">
                 {% for a in alertas %}
                   <li class="collection-item">{{ a.texto }}</li>
@@ -350,24 +525,30 @@
               </ul>
             {% else %}
               <div class="card-panel" style="background:#efe8da; color:#5d4a3f;">
-                Todo en orden. Sin alertas por ahora.
+                {% if can_view_sensitive_dashboard %}
+                  Todo en orden. Sin alertas por ahora.
+                {% else %}
+                  Vista operativa sin alertas sensibles.
+                {% endif %}
               </div>
             {% endif %}
 
             <div class="card-panel" style="background:#f4e7d7; color:#6d5548;">
-              Pendientes sugeridos:
+              Checklist sugerido:
               <ul style="margin:8px 0 0 18px;">
-                <li>Controlar stock mínimo</li>
-                <li>Revisar precios sin definir</li>
-                <li>Cierre de caja al final del día</li>
+                {% if can_access_caja %}
+                  <li>Validar apertura/cierre de caja</li>
+                {% endif %}
+                <li>Revisar ventas pendientes de control</li>
+                {% if can_view_sensitive_dashboard %}
+                  <li>Controlar productos con stock mínimo</li>
+                {% endif %}
               </ul>
             </div>
-
           </div>
         </div>
       </div>
     </div>
-
   </main>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>

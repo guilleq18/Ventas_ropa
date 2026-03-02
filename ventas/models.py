@@ -102,6 +102,9 @@ class Venta(models.Model):
     )
 
     class Meta:
+        permissions = [
+            ("usar_caja_pos", "Puede usar Caja POS"),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["sucursal", "numero_sucursal"],

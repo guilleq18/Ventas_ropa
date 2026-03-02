@@ -2,21 +2,32 @@ import re
 import unicodedata
 from itertools import product as cartesian_product
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Count, Sum
+from django.db.models.deletion import ProtectedError
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.template.loader import render_to_string
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_http_methods
 
 from core.models import Sucursal
 
-from .forms import GeneradorVariantesForm, ProductoForm, StockSucursalForm, VarianteForm
+from .forms import (
+    CategoriaForm,
+    GeneradorVariantesForm,
+    ProductoForm,
+    StockSucursalForm,
+    VarianteForm,
+)
 from .models import (
     Atributo,
     AtributoValor,
+    Categoria,
     Producto,
     StockSucursal,
     Variante,
@@ -178,12 +189,106 @@ def _render_variantes_panel(request, producto_id: int) -> HttpResponse:
 # ----------------------------
 
 @login_required
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "POST"])
 @xframe_options_sameorigin
 def productos(request):
-    """Pantalla principal de catálogo (productos a la izquierda, panel variantes a la derecha)."""
+    """Pantalla principal de catálogo (productos + categorías)."""
+    active_tab = (request.GET.get("tab") or "productos").strip().lower()
+    if active_tab not in {"productos", "categorias"}:
+        active_tab = "productos"
+
+    edit_categoria = None
+    categoria_form = CategoriaForm(prefix="cat")
+    open_categoria_modal = request.method == "GET" and request.GET.get("new_categoria") == "1"
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "categoria_save":
+            cat_id = request.POST.get("categoria_id")
+            instance = None
+            if cat_id:
+                instance = get_object_or_404(Categoria, id=cat_id)
+                edit_categoria = instance
+
+            categoria_form = CategoriaForm(request.POST, instance=instance, prefix="cat")
+            if categoria_form.is_valid():
+                categoria = categoria_form.save()
+                if cat_id:
+                    messages.success(request, f"Categoria actualizada: {categoria.nombre}.")
+                else:
+                    messages.success(request, f"Categoria creada: {categoria.nombre}.")
+                return redirect(f"{reverse('catalogo:productos')}?tab=categorias")
+
+            active_tab = "categorias"
+            open_categoria_modal = True
+
+        elif action == "categoria_toggle":
+            categoria = get_object_or_404(Categoria, id=request.POST.get("categoria_id"))
+            categoria.activa = not categoria.activa
+            categoria.save(update_fields=["activa"])
+            estado = "activada" if categoria.activa else "desactivada"
+            messages.success(request, f"Categoria {categoria.nombre} {estado}.")
+            return redirect(f"{reverse('catalogo:productos')}?tab=categorias")
+
+        elif action == "categoria_delete":
+            categoria = get_object_or_404(Categoria, id=request.POST.get("categoria_id"))
+            nombre = categoria.nombre
+            try:
+                categoria.delete()
+                messages.success(request, f"Categoria eliminada: {nombre}.")
+            except ProtectedError:
+                messages.error(
+                    request,
+                    f"No se puede eliminar {nombre}: tiene productos asociados.",
+                )
+            return redirect(f"{reverse('catalogo:productos')}?tab=categorias")
+
+        else:
+            messages.error(request, "Accion no reconocida.")
+            return redirect(f"{reverse('catalogo:productos')}?tab={active_tab}")
+
+    if request.method == "GET":
+        edit_categoria_id = request.GET.get("edit_categoria")
+        if edit_categoria_id:
+            edit_categoria = get_object_or_404(Categoria, id=edit_categoria_id)
+            categoria_form = CategoriaForm(instance=edit_categoria, prefix="cat")
+            active_tab = "categorias"
+            open_categoria_modal = True
+
+    can_access_admin_panel = request.user.is_superuser or request.user.has_perm(
+        "admin_panel.view_usuarioperfil"
+    )
+    can_access_caja = request.user.is_superuser or request.user.has_perm("ventas.usar_caja_pos")
+    sucursal_nav = None
+    try:
+        profile = request.user.panel_profile
+        if getattr(profile, "sucursal_id", None):
+            sucursal_nav = profile.sucursal
+    except ObjectDoesNotExist:
+        sucursal_nav = None
+    except Exception:
+        sucursal_nav = None
+
+    categorias = (
+        Categoria.objects.annotate(productos_count=Count("producto")).order_by("-activa", "nombre")
+    )
     productos = Producto.objects.select_related("categoria").order_by("-created_at")[:100]
-    return render(request, "catalogo/productos.html", {"productos": productos})
+    return render(
+        request,
+        "catalogo/productos.html",
+        {
+            "active_tab": active_tab,
+            "can_access_admin_panel": can_access_admin_panel,
+            "can_access_caja": can_access_caja,
+            "sucursal_nav": sucursal_nav,
+            "categoria_form": categoria_form,
+            "categorias": categorias,
+            "edit_categoria": edit_categoria,
+            "open_categoria_modal": open_categoria_modal,
+            "productos": productos,
+        },
+    )
 
 
 @login_required

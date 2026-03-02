@@ -2,6 +2,21 @@ from django import forms
 from .models import Producto, Variante, StockSucursal, Categoria
 
 
+class CategoriaForm(forms.ModelForm):
+    class Meta:
+        model = Categoria
+        fields = ["nombre", "activa"]
+        widgets = {
+            "nombre": forms.TextInput(attrs={"autocomplete": "off", "class": "validate"}),
+            "activa": forms.CheckboxInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nombre"].label = "Nombre"
+        self.fields["activa"].label = "Activa"
+
+
 class ProductoForm(forms.ModelForm):
     class Meta:
         model = Producto

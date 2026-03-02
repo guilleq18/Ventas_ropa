@@ -938,6 +938,12 @@
             Caja
           </a>
         </li>
+        <li>
+          <a class="btn-flat waves-effect" href="{% url 'catalogo:productos' %}">
+            <i class="material-icons">inventory_2</i>
+            Catalogo
+          </a>
+        </li>
 
         {% if request.user.is_superuser or perms.admin_panel.view_usuarioperfil %}
           <li>
@@ -1008,6 +1014,7 @@
     </li>
     <li><a href="{% url 'core:dashboard' %}"><i class="material-icons">dashboard</i>Dashboard</a></li>
     <li><a href="{% url 'caja:pos' %}"><i class="material-icons">point_of_sale</i>Caja</a></li>
+    <li><a href="{% url 'catalogo:productos' %}"><i class="material-icons">inventory_2</i>Catalogo</a></li>
     {% if request.user.is_superuser or perms.admin_panel.view_usuarioperfil %}
       <li><a href="{% url 'admin_panel:dashboard' %}"><i class="material-icons">admin_panel_settings</i>Admin Panel</a></li>
     {% endif %}
@@ -1075,25 +1082,6 @@
                 </button>
               </form>
             {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <div class="card-panel" style="margin:0 0 12px; border-radius:12px; border:1px dashed rgba(121,85,72,.18); background:rgba(255,255,255,.62);">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-          <div class="grey-text text-darken-2" style="font-size:13px; font-weight:600;">
-            Atajos de teclado
-          </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <span class="chip" style="margin:0; font-weight:600;">
-              <span class="mono" style="font-weight:800;">F1</span>&nbsp;Buscar
-            </span>
-            <span class="chip" style="margin:0; font-weight:600;">
-              <span class="mono" style="font-weight:800;">F2</span>&nbsp;Pagos
-            </span>
-            <span class="chip" style="margin:0; font-weight:600;">
-              <span class="mono" style="font-weight:800;">F5</span>&nbsp;Confirmar venta
-            </span>
           </div>
         </div>
       </div>
